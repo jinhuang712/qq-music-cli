@@ -64,7 +64,9 @@ qqmusic undo <run_id>               # 撤销某次改动
 - [HOW-IT-WORKS.md](HOW-IT-WORKS.md)：原理和插件结构
 - [DEVELOPMENT.md](DEVELOPMENT.md)：开发与发布
 
-## 参考过的项目
+## 致谢
+
+> 感谢以下项目的一些启发
 
 - [L-1124/QQMusicApi](https://github.com/L-1124/QQMusicApi)
 - [baoozak/qqmusic-mcp](https://github.com/baoozak/qqmusic-mcp)
