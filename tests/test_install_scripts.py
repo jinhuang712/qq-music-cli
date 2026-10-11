@@ -10,7 +10,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 AGENTS = ("claude", "codex", "pi", "opencode")
-SCRIPTS = ["install.sh"] + [f"install-{a}.sh" for a in AGENTS]
+SCRIPTS = [f"install-{a}.sh" for a in AGENTS]
 REPO = "jinhuang712/qq-music-cli"
 
 
@@ -48,7 +48,13 @@ def test_plugin_names_match_manifests():
 
 def test_docs_point_at_real_scripts():
     raw = f"https://raw.githubusercontent.com/{REPO}/master/"
-    for doc in ("README.md", "docs/index.html"):
+    for doc in ("README.md", "INSTALL.md", "docs/index.html"):
         text = (ROOT / doc).read_text()
         referenced = set(re.findall(re.escape(raw) + r"(install[\w-]*\.sh)", text))
         assert referenced == set(SCRIPTS), (doc, referenced)
+
+
+def test_markdown_links_resolve():
+    for doc in ("README.md", "INSTALL.md", "USAGE.md", "HOW-IT-WORKS.md", "DEVELOPMENT.md"):
+        for target in re.findall(r"\]\(([^)#:]+)\)", (ROOT / doc).read_text()):
+            assert (ROOT / target).exists(), (doc, target)

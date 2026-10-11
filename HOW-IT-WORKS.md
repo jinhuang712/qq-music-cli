@@ -1,0 +1,56 @@
+# 原理
+
+## 数据接口
+
+`qqmusic` 以明文 JSON 请求 `https://u.y.qq.com/cgi-bin/musicu.fcg`。请求里带的东西和 y.qq.com 网页相同：
+
+- 同样的 `comm`（`ct=24`、`cv=4747474`）
+- 账号 Cookie
+- `g_tk`，即对 session key 做 hash33 的结果
+
+y.qq.com 网页自己现在用的是另一个加密并签名的接口。但截至最近一次检查（2026-10-11），这个明文接口的读写仍然照常响应。
+
+以下接口都在真实账号上验证过：
+
+| 能力             | module / method                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------- |
+| 列出歌单         | `music.musicasset.PlaylistBaseRead` / `GetPlaylistByUin`                                                  |
+| 读歌单           | `music.srfDissInfo.aiDissInfo` / `uniform_get_Dissinfo`                                                   |
+| 建歌单、删歌单   | `music.musicasset.PlaylistBaseWrite` / `AddPlaylist`、`DelPlaylist`                                       |
+| 加歌、删歌       | `music.musicasset.PlaylistDetailWrite` / `AddSonglist`、`DelSonglist`                                     |
+| 歌曲元数据       | `music.trackInfo.UniformRuleCtrl` / `CgiGetTrackInfo`、`music.pf_song_detail_svr` / `get_song_detail_yqq` |
+| 收藏的歌单和专辑 | `music.musicasset.PlaylistFavRead`、`music.musicasset.AlbumFavRead`                                       |
+| 搜索             | `music.search.SearchCgiService` / `DoSearchForQQMusicDesktop`                                             |
+| 歌词             | `c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg`                                                       |
+
+## 登录
+
+- **扫码流程**：QQ 扫码走 QQ 的 ptlogin 和 graph.qq.com OAuth，微信扫码走微信开放平台，两条路最后都由 QQ 音乐的登录接口换取凭证。
+- **不用浏览器**：整个过程都是普通 HTTP 请求，不依赖浏览器自动化。
+- **登录窗口**：你看到的窗口是 `127.0.0.1` 上的一个本地页面，只负责显示二维码和登录状态，登录结束后就关闭。如果装了 Chrome，它会单独开一个临时的 Chrome 实例，结束后连同临时 profile 一起清理掉。
+- **续期**：登录 key 3 天过期，续期调用同一个登录接口的 `loginMode=2`。
+
+## 插件结构
+
+插件的全部内容只有一份 Agent Skill。Claude Code 和 Codex 会在 skill 名前加插件名，Pi 和 OpenCode 不会，所以按渠道分两种打包：
+
+| 渠道               | 目录                                                                | 显示的名字     |
+| ------------------ | ------------------------------------------------------------------- | -------------- |
+| Claude Code、Codex | `skills/cli/`（源头）                                               | `qq-music:cli` |
+| Pi、OpenCode       | `flat-skills/qq-music-cli/`（由 `scripts/sync_flat_skill.py` 生成） | `qq-music-cli` |
+
+skill 由三份文件组成：
+
+- `SKILL.md`：安装、登录、命令和安全规则。
+- `references/concepts.md`：QQ 音乐的数据模型，包括 `dir_id` 和 `tid` 的区别、「我喜欢」、同一首歌的不同版本、语种和流派代码，以及各项限制。
+- `references/workflows.md`：曲库体检、整理「我喜欢」、根据描述生成歌单、合并、拆分、去重、规则同步、备份、清理等做法。
+
+各渠道的清单文件：
+
+- `.claude-plugin/`：Claude Code 用，Codex 也读其中的 marketplace。
+- `plugin.json`：[agent-plugins.org](https://agent-plugins.org) 格式，Codex 读取。
+- `package.json`：`pi.skills` 字段，Pi 读取。
+
+## 协议知识的来源
+
+协议知识一部分来自抓取 y.qq.com 网页自身的请求，一部分来自阅读 README 里列出的几个开源项目。本项目没有包含这些项目的任何代码。

@@ -670,7 +670,7 @@
           "start.h": "三步上手",
           "start.sub": "按你用的 agent 选择安装方式，其余的交给 agent。",
           "s1.h": "安装插件",
-          "s1.p": "在终端里运行一条命令，插件和 qqmusic CLI 会一起装好，重复运行就是更新。「全部」会给本机装了的每个 agent 都装上：",
+          "s1.p": "在终端里运行一条命令，插件和 qqmusic CLI 会一起装好，重复运行就是更新。按你用的 agent 选：",
           "s2.h": "直接对 agent 说",
           "s2.p": "装好后新开一个会话，直接对 agent 说话，它会自己发起登录。可以这样说：",
           "s3.h": "扫码登录",
@@ -692,12 +692,6 @@
         },
       };
       const INSTALL = [
-        {
-          id: "all",
-          label: "全部",
-          cmd: "curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install.sh | bash",
-          shows: "qq-music:cli 或 qq-music-cli",
-        },
         {
           id: "claude",
           label: "Claude Code",
@@ -751,7 +745,7 @@
           } catch (e) {}
         },
       };
-      let agent = store.get("agent") || "all";
+      let agent = store.get("agent") || "claude";
 
       function render() {
         const t = I18N.zh;
