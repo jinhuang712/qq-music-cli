@@ -25,6 +25,8 @@ codex plugin add qq-music@qq-music
 
 测试全部离线运行，不会访问 QQ 音乐，也不会碰钥匙串。
 
+推送到 `master` 或提交 PR 时，GitHub Actions 会在 macOS 上用 Python 3.11 和 3.13 跑 ruff 和全部测试，配置在 `.github/workflows/test.yml`。
+
 - **接口层**：用模拟服务器覆盖请求的组装、错误映射，以及读写和撤销流程。
 - **登录**：用抓到的真实「等待扫码」响应作为样本，把 QQ 和微信两条流程从头走到尾。
 - **清单文件**：各清单里的名字、版本号、license 要一致；skill 的源头和副本要同步；每个渠道只能看到一个 skill。
