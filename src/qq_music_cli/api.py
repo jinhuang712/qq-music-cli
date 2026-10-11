@@ -255,6 +255,39 @@ class Library:
             "comments": out,
         }
 
+    # -- public playlists as a reference --------------------------------------------------------
+
+    def match_public(self, keywords: list[str], *, lists: int = 8, per_list: int = 300) -> dict[str, Any]:
+        """Which of the user's songs appear in the top public playlists for some keywords, and how often.
+
+        A rough, outside opinion on a vibe ("city pop", "chill"): public lists are noisy, so a song found
+        in several lists is a stronger candidate than one found once. The user's own playlists are skipped.
+        """
+        own = self.playlists()
+        mine: dict[tuple[int, int], dict[str, Any]] = {}
+        for p in own:
+            if not p["song_count"]:
+                continue
+            for s in self.playlist_songs(p["tid"])["songs"]:
+                entry = mine.setdefault((s["id"], s["type"]), {**s, "hits": 0, "in": []})
+                if p["name"] not in entry["in"]:
+                    entry["in"].append(p["name"])
+        own_tids = {p["tid"] for p in own}
+        found: dict[int, dict[str, Any]] = {}  # each public list once, even when several keywords find it
+        for keyword in keywords:
+            for r in self.search(keyword, kind="playlist", limit=lists)["results"]:
+                if r["tid"] not in own_tids:
+                    found.setdefault(r["tid"], r)
+        read = []
+        for pl in found.values():
+            songs = self.playlist_songs(pl["tid"], limit=per_list)["songs"]
+            read.append({"tid": pl["tid"], "name": pl["name"], "songs_read": len(songs)})
+            for key in {(s["id"], s["type"]) for s in songs}:
+                if key in mine:
+                    mine[key]["hits"] += 1
+        matches = sorted((s for s in mine.values() if s["hits"]), key=lambda s: (-s["hits"], s["name"]))
+        return {"keywords": keywords, "lists": read, "your_songs": len(mine), "count": len(matches), "matches": matches}
+
     def comment_counts(self, kind: str, ids: Iterable[Any]) -> dict[str, int | None]:
         """Comment totals (`TotalCmNum`) for songs, albums or playlists by numeric id, a few per request.
 

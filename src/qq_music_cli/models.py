@@ -11,6 +11,10 @@ from .errors import UsageError
 LIKED_DIR_ID = 201
 MID_RE = re.compile(r"^[0-9A-Za-z]{14}$")
 COVER_URL = "https://y.gtimg.cn/music/photo_new/T002R300x300M000{mid}.jpg"  # album cover by album mid
+# Page links in the form y.qq.com itself uses; agents should take these instead of building their own.
+SONG_URL = "https://y.qq.com/n/ryqq_v2/songDetail/{mid}"
+ALBUM_URL = "https://y.qq.com/n/ryqq_v2/albumDetail/{mid}"
+PLAYLIST_URL = "https://y.qq.com/n/ryqq_v2/playlist/{tid}"
 # Audio files a song has, judged by which file sizes are non-zero.
 QUALITY_FILES = (("320k", "size_320mp3"), ("flac", "size_flac"), ("hires", "size_hires"), ("dolby", "size_dolby"))
 
@@ -20,7 +24,7 @@ SONG_DEFAULT = ("id", "mid", "type", "name", "artist", "album", "duration")
 SONG_FIELDS = (
     *SONG_DEFAULT,
     *("title", "subtitle", "singers", "release_date", "language", "genre", "vip"),
-    *("bpm", "mv", "qualities", "track_no", "cover"),
+    *("bpm", "mv", "qualities", "track_no", "cover", "url"),
 )
 # Only `qqmusic song` has these: each needs one more call per song (`get_song_detail_yqq`).
 SONG_DETAIL_FIELDS = ("genre_name", "language_name", "company", "publish_time", "intro", "trans_name")
@@ -28,18 +32,21 @@ SONG_DETAIL_DEFAULT = SONG_DETAIL_FIELDS[:4]  # what `--detail` adds
 PLAYLIST_DEFAULT = ("dir_id", "tid", "name", "song_count", "liked", "public", "tags", "created_at", "updated_at")
 # Read one `uniform_get_Dissinfo` call per playlist, so they are fetched only when asked for.
 PLAYLIST_EXTRA_FIELDS = ("listen_count", "desc")
-PLAYLIST_FIELDS = (*PLAYLIST_DEFAULT, "cover", *PLAYLIST_EXTRA_FIELDS)
+PLAYLIST_FIELDS = (*PLAYLIST_DEFAULT, "cover", "url", *PLAYLIST_EXTRA_FIELDS)
 FAVED_PLAYLIST_DEFAULT = ("tid", "name", "creator", "song_count", "faved_at")
 FAVED_PLAYLIST_EXTRA_FIELDS = ("listen_count", "desc", "tags")
-FAVED_PLAYLIST_FIELDS = (*FAVED_PLAYLIST_DEFAULT, "updated_at", "cover", *FAVED_PLAYLIST_EXTRA_FIELDS)
+FAVED_PLAYLIST_FIELDS = (*FAVED_PLAYLIST_DEFAULT, "updated_at", "cover", "url", *FAVED_PLAYLIST_EXTRA_FIELDS)
 FAVED_ALBUM_DEFAULT = ("id", "mid", "name", "artist", "song_count", "release_date", "faved_at")
-FAVED_ALBUM_FIELDS = (*FAVED_ALBUM_DEFAULT, "cover")
+FAVED_ALBUM_FIELDS = (*FAVED_ALBUM_DEFAULT, "cover", "url")
 FOLLOWED_DEFAULT = ("name", "mid", "euin", "fans")
 FOLLOWED_FIELDS = (*FOLLOWED_DEFAULT, "avatar")
 # One comment-list call per song (10 songs per request), so any song list offers it only on request.
 SONG_COUNT_FIELDS = ("comment_count",)
 COMMENT_DEFAULT = ("content", "likes", "replies", "time")
 COMMENT_FIELDS = (*COMMENT_DEFAULT, "user", "id")
+# `qqmusic match`: the user's songs found in public playlists. Meant to be shown to the user, so links are in.
+MATCH_DEFAULT = ("id", "type", "name", "artist", "url", "hits", "in")
+MATCH_FIELDS = (*MATCH_DEFAULT, *(f for f in SONG_FIELDS if f not in MATCH_DEFAULT))
 
 
 def _singers(raw: Any) -> list[dict[str, Any]]:
@@ -79,6 +86,7 @@ def song(raw: dict[str, Any]) -> dict[str, Any]:
         "qualities": [name for name, key in QUALITY_FILES if (raw.get("file") or {}).get(key)],
         "track_no": raw.get("index_album") or None,
         "cover": _cover(album.get("mid")),
+        "url": SONG_URL.format(mid=raw["mid"]) if raw.get("mid") else None,
     }
 
 
@@ -102,6 +110,7 @@ def playlist(raw: dict[str, Any], tag_names: dict[int, str] | None = None) -> di
         "created_at": raw.get("createTime"),
         "updated_at": raw.get("updateTime"),
         "cover": raw.get("picUrl") or None,
+        "url": _playlist_url(raw.get("tid")),
     }
 
 
@@ -121,6 +130,7 @@ def playlist_info(dirinfo: dict[str, Any]) -> dict[str, Any]:
         "tags": tags or dirinfo.get("vec_tagname") or [],
         "listen_count": dirinfo.get("listennum"),
         "cover": dirinfo.get("picurl") or None,
+        "url": _playlist_url(dirinfo.get("id")),
         "created_at": dirinfo.get("ctime"),
         "updated_at": dirinfo.get("mtime"),
     }
@@ -135,6 +145,7 @@ def faved_playlist(raw: dict[str, Any]) -> dict[str, Any]:
         "faved_at": raw.get("orderTime"),
         "updated_at": raw.get("updateTime"),
         "cover": raw.get("logo") or None,
+        "url": _playlist_url(raw.get("tid")),
     }
 
 
@@ -149,6 +160,7 @@ def faved_album(raw: dict[str, Any]) -> dict[str, Any]:
         "release_date": _date(raw.get("pubtime")),
         "faved_at": raw.get("ordertime"),
         "cover": raw.get("logo") or None,
+        "url": ALBUM_URL.format(mid=raw["mid"]) if raw.get("mid") else None,
     }
 
 
@@ -221,7 +233,12 @@ def album(detail: dict[str, Any], total: int | None = None) -> dict[str, Any]:
         "rec_text": basic.get("recText") or None,
         "desc": basic.get("desc") or None,
         "cover": _cover(basic.get("albumMid")),
+        "url": ALBUM_URL.format(mid=basic["albumMid"]) if basic.get("albumMid") else None,
     }
+
+
+def _playlist_url(tid: Any) -> str | None:
+    return PLAYLIST_URL.format(tid=tid) if tid else None
 
 
 def _cover(album_mid: Any) -> str | None:

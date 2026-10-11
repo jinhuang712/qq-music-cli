@@ -234,9 +234,18 @@ class FakeQQMusic:
             }
         pl = next((x for x in self.playlists if x["tid"] == p["disstid"]), None)
         if pl is None and p["disstid"] in self.public:
-            info = self.public[p["disstid"]]
+            info = {k: v for k, v in self.public[p["disstid"]].items() if k != "songs"}
             tags = info["tag"] if p.get("tag") == 1 else []
-            return {"code": 0, "dirinfo": {"id": p["disstid"], **info, "tag": tags}, "songlist": [], "hasmore": 0}
+            ids = self.public[p["disstid"]].get("songs", [])
+            begin, num = p["song_begin"], p["song_num"] or len(ids)
+            page = ids[begin : begin + num]
+            return {
+                "code": 0,
+                "dirinfo": {"id": p["disstid"], **info, "tag": tags, "songnum": len(ids)},
+                "total_song_num": len(ids),
+                "songlist": [self.catalog[i] for i in page],
+                "hasmore": 1 if begin + len(page) < len(ids) else 0,
+            }
         if pl is None:
             return {"code": 1, "msg": "no such playlist"}
         visible = pl["songs"] if self.max_visible is None else pl["songs"][: self.max_visible]
@@ -401,6 +410,21 @@ class FakeQQMusic:
         if p["BizId"] in self.closed_comments:
             raise SlotError(20022)
         return self._comment_page(p, hot=False)
+
+    def rpc_DoSearchForQQMusicDesktop(self, p):
+        if p["search_type"] != 3:  # only playlist search is faked
+            return {"body": {}, "meta": {"sum": 0}}
+        hits = [
+            {"dissid": str(tid), "dissname": info["title"], "song_count": len(info.get("songs", [])), "listennum": 1}
+            for tid, info in self.public.items()
+            if p["query"].lower() in info["title"].lower()
+        ]
+        hits += [  # the user's own public playlists show up in search results too
+            {"dissid": str(pl["tid"]), "dissname": pl["dirName"], "song_count": len(pl["songs"])}
+            for pl in self.playlists
+            if p["query"].lower() in pl["dirName"].lower()
+        ]
+        return {"body": {"songlist": {"list": hits[: p["num_per_page"]]}}, "meta": {"sum": len(hits)}}
 
     def rpc_get_song_detail_yqq(self, p):
         track = next(s for s in self.catalog.values() if s["mid"] == p["song_mid"])

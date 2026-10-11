@@ -343,7 +343,7 @@ def search(
     """Search the QQ Music catalogue."""
     songs = type_ in ("song", "lyric")
     keep: list[str] | None = _song_fields(fields) if songs else _fields(fields)
-    lib = _library(required=False)
+    lib = _library()  # logged out, every search type comes back empty (checked live), so require login
     result = lib.search(query, kind=type_, page=page, limit=limit)
     if songs and keep:
         result["results"] = _with_comment_counts(lib, result["results"], keep)
@@ -364,6 +364,22 @@ def album(
     lib = _library(required=False)
     result = lib.album(album_mid.strip(), limit=limit)
     result["songs"] = [project(s, keep) for s in _with_comment_counts(lib, result["songs"], keep)]
+    emit(result)
+
+
+@app.command()
+def match(
+    keywords: list[str] = typer.Argument(..., help='Vibes or styles to look up, e.g. "city pop" "韩国 city pop".'),
+    lists: int = typer.Option(8, min=1, max=30, help="Public playlists to read per keyword."),
+    per_list: int = typer.Option(300, min=1, help="Read at most this many songs from each."),
+    min_hits: int = typer.Option(1, min=1, help="Keep songs found in at least this many lists."),
+    fields: str | None = _fields_option("Defaults: id, type, name, artist, url, hits, in."),
+) -> None:
+    """Find which of your songs show up in popular public playlists for some keywords (candidates, not answers)."""
+    keep = select_fields(fields, models.MATCH_DEFAULT, models.MATCH_FIELDS)
+    result = _library().match_public(keywords, lists=lists, per_list=per_list)
+    result["matches"] = [project(s, keep) for s in result["matches"] if s["hits"] >= min_hits]
+    result["count"] = len(result["matches"])
     emit(result)
 
 

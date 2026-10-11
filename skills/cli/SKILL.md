@@ -31,7 +31,7 @@ QQ 音乐 CLI 工具已加载，你想要做什么？你可以让我：
 
 或者你也可以直接让我：
 
-- 把「我喜欢」按语种或曲风分进几个歌单
+- 按气质（比如 city pop、清冷、浪漫）重新规划我的歌单
 - 找出散落在各个歌单里的重复歌曲
 - 做一个下雨天听的华语 R&B 歌单，30 首左右
 - 分析一下我收藏的歌偏什么口味和曲风
@@ -73,6 +73,8 @@ command -v qqmusic && qqmusic --compact status
 | 看专辑：简介、类型、唱片公司、获奖和曲目。专辑 mid 取自歌曲的 `album.mid` 或 `search --type album` | `qqmusic album 000MkMni19ClKG`                                                                                        |
 | 看歌曲、专辑或歌单的热门评论和评论总数，加 `--new` 看最新评论                                      | `qqmusic comments song 0039MnYb0qxYhV`、`qqmusic comments album 000MkMni19ClKG --new`                                 |
 | 看歌有多热：每首歌的评论总数（每 10 首歌多一次请求）                                               | 任何列出歌曲的命令加 `--fields +comment_count`                                                                        |
+| 借公开歌单判断气质：用户曲库里哪些歌出现在某类公开歌单里（`hits` 是出现在几个歌单里）              | `qqmusic match "city pop" "韩国 city pop" "华语 city pop"`                                                            |
+| 歌曲、歌单、专辑的 QQ 音乐链接                                                                     | 加 `--fields +url`，导出文件里也有 `url`                                                                              |
 | 搜索                                                                                               | `qqmusic search "晴天 周杰伦" --type song --limit 10`（`--type` 可选 song、singer、album、playlist、mv、lyric、user） |
 | 查歌词                                                                                             | `qqmusic lyrics 0039MnYb0qxYhV`                                                                                       |
 | 导出整个曲库                                                                                       | `qqmusic export`，输出 `{"path": ...}`                                                                                |
@@ -134,3 +136,6 @@ qqmusic show RNB --fields id,type | qqmusic add "RNB精选" --stdin --dry-run
 7. 歌单名不能超过 20 个字，这是 y.qq.com 新建歌单时的上限。新建之前先查有没有同名歌单，有就直接用。
 8. 对比歌手（关注了谁、收藏了谁的歌）时，用 `qqmusic following --saved`，它按歌手 `mid` 统计。自己写查询也必须按 `mid` 匹配，不能按名字：关注列表里的名字常带括号译名，和歌曲里的署名对不上。回答时说明比的是「我喜欢」（`liked_songs`）还是所有歌单（`saved_songs`）。
 9. 只取需要的字段。几百首歌的歌单用默认字段或 `+字段`，不要用 `--fields all`。要全部字段做分析时，用 `qqmusic export`：导出文件里有所有字段，`jq` 查询不占上下文。
+10. 用中文回复。用户偶尔用英文写一句，不代表要换语言；只有用户明确要求时才换。
+11. 给用户列歌时（方案、样本、候选），每个歌单或每一组用一个二级标题，下面一首歌一行，写成 `[歌名 - 歌手](url)`。不用表格。链接用 CLI 给的 `url`（`--fields +url`、`match` 的结果、导出文件里都有），不要自己拼。
+12. 按气质（听感）分类或找歌时，照 [references/workflows.md](references/workflows.md) 第 12 节做：逐首判断，旧歌单和歌手只是线索；语种、流派代码代替不了气质。
