@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "qq-music",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "description": "让 coding agent 用 qqmusic CLI 管理你的 QQ 音乐曲库：歌单、我喜欢、歌曲元数据，批量修改可预览、可撤销，并附带整理曲库的工作流。非官方项目。",
   "author": {
     "name": "jinhuang712"
