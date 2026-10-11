@@ -1,96 +1,98 @@
-# QQ Music concepts for library work
+# 整理曲库前要了解的 QQ 音乐概念
 
-Read this before you plan changes. It explains how QQ Music models a library and what the CLI can and cannot do.
-Facts marked _observed_ were seen on a real account in October 2026. Facts marked _unverified_ were not tested.
+动手改之前，先读这一篇。它讲清楚两件事：QQ 音乐怎样组织一个人的曲库，以及 CLI 能做什么、不能做什么。
 
-## Account and session
+文中标「实测」的，都在 2026 年 10 月用真实账号验证过；标「未验证」的没有测过。
 
-- A user logs in with WeChat (`login_type: wechat`) or QQ (`login_type: qq`). The account id is `uin`, and some read calls also use the encrypted id `euin`. The CLI handles both, so you never pass them yourself.
-- The session key lasts 3 days (_observed_). `qqmusic` refreshes it automatically, and a refresh issues a new key valid for another 3 days.
-- How long the refresh token itself lasts is _unverified_. When refresh stops working, the user has to scan a QR code again.
-- Only the QR scan needs a human. Run `qqmusic login --wechat` in the background and let the window guide the user.
+## 账号与登录
 
-## Playlists
+- 用户可以用微信登录（`login_type: wechat`），也可以用 QQ 登录（`login_type: qq`）。
+- 账号 ID 是 `uin`，部分读接口还要用加密后的 `euin`。这两个都由 CLI 自己处理，你不需要传。
+- 登录 key 的有效期是 3 天（实测）。`qqmusic` 会自动续期；每续一次换一个新 key，有效期重新算 3 天。
+- 续期依赖的刷新令牌本身能用多久，未验证。续期失败时，用户需要重新扫码。
+- 只有扫码需要用户本人来做。你在后台运行 `qqmusic login --wechat`，弹出的窗口会引导用户完成登录。
 
-| Kind                            | Identified by                                          | Editable            | Notes                                                                                                           |
-| ------------------------------- | ------------------------------------------------------ | ------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Own playlist (自建歌单)         | `dir_id` (small per-user number) and `tid` (global id) | yes                 | `qqmusic playlists` lists them. Commands accept the name, `dir_id` or `tid`                                     |
-| 我喜欢 (liked songs)            | `dir_id` 201                                           | add and remove only | Each account has exactly one. It cannot be deleted or renamed. "Like a song" means adding it here               |
-| Collected playlist (收藏的歌单) | `tid` only                                             | no                  | Other people's or official playlists. `qqmusic faved playlists` lists them, and `qqmusic show <tid>` reads them |
-| Collected album (收藏的专辑)    | album `id` / `mid`                                     | no                  | `qqmusic faved albums`                                                                                          |
+## 歌单
 
-- `dir_id` only means something inside one account. `tid` is what share links use, such as `https://y.qq.com/n/ryqq_v2/playlist/<tid>`.
-- Deleting and recreating a playlist (including `undo` of a delete) gives it a new `tid`. Old share links break.
-- The server allows duplicate names, but `qqmusic create` is idempotent by exact name: it returns the existing playlist. Use `--allow-duplicate` only on request.
-- Names must be 20 characters or fewer (_observed_ in the y.qq.com create dialog).
-- The web page shows only the first page of a playlist. `qqmusic show` and `export` return every song, and `complete: false` means some songs could not be read.
-- Official collected playlists such as "每日30首" or "红心雷达" change on their own. Treat them as snapshots.
+| 类型       | 怎么标识                                        | 能否修改       | 说明                                                                            |
+| ---------- | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------------- |
+| 自建歌单   | `dir_id`（账号内部的小编号）和 `tid`（全局 ID） | 能             | `qqmusic playlists` 列出全部。命令里可以写歌单名、`dir_id` 或 `tid`             |
+| 我喜欢     | `dir_id` 为 201                                 | 只能加歌、删歌 | 每个账号有且只有一个，不能删除，也不能改名。「加红心」就是把歌加进这里          |
+| 收藏的歌单 | 只有 `tid`                                      | 不能           | 别人的歌单或官方歌单。`qqmusic faved playlists` 列出，`qqmusic show <tid>` 读取 |
+| 收藏的专辑 | 专辑的 `id` 或 `mid`                            | 不能           | `qqmusic faved albums`                                                          |
 
-## Songs
+- `dir_id` 只在同一个账号里有意义。分享链接用的是 `tid`，形如 `https://y.qq.com/n/ryqq_v2/playlist/<tid>`。
+- 歌单删除后再重建（包括撤销一次删除），会拿到新的 `tid`，旧的分享链接随之失效。
+- 服务器允许重名歌单，但 `qqmusic create` 按名字判重：同名歌单已存在时，直接返回那一个。只有用户明确要求时，才加 `--allow-duplicate`。
+- 歌单名不能超过 20 个字（实测，这是 y.qq.com 新建歌单时输入框的上限）。
+- 网页版只显示歌单的第一页，`qqmusic show` 和 `export` 则会返回全部歌曲。结果里出现 `complete: false`，说明有歌没读到。
+- 「每日30首」「红心雷达」这类官方歌单会自动更新，读到的只是当时的快照。
 
-- A song is identified by a numeric `id` plus a `type`. Type 0 is a normal track, and other types are rare (long audio, video).
-- Writes use `id` + `type`. Reads also accept the 14-character `mid`, which appears in share links: `https://y.qq.com/n/ryqq_v2/songDetail/<mid>`.
-- The same song often exists as several versions with different ids: studio album, live (`(Live)`), compilation, remaster, explicit or clean, and accompaniment (`(伴奏)`).
-  - Example: searching "晴天 周杰伦" returns the studio version on 《叶惠美》 and several concert versions.
-  - Use `album.name`, `release_date` and the title suffix to tell them apart.
-  - Prefer the original studio version unless the user asks for live or another version.
-- Song fields in CLI output:
+## 歌曲
 
-  | Field               | Meaning                                                                           |
-  | ------------------- | --------------------------------------------------------------------------------- |
-  | `id`, `type`, `mid` | Identity                                                                          |
-  | `name`              | Display name                                                                      |
-  | `title`             | Present only when it differs from `name`, for example with an `(Explicit)` suffix |
-  | `artist`            | All singers joined with `/`                                                       |
-  | `singers`           | List of `{id, mid, name}`                                                         |
-  | `album`             | `{id, mid, name}`                                                                 |
-  | `duration`          | Seconds                                                                           |
-  | `release_date`      | `YYYY-MM-DD`                                                                      |
-  | `language`, `genre` | Numeric codes                                                                     |
-  | `vip`               | `true` means playing it needs a VIP membership                                    |
+- 一首歌由数字 `id` 加 `type` 确定。`type` 为 0 是普通单曲，其他类型（长音频、视频）很少见。
+- 写操作用 `id` 加 `type`。读操作还接受 14 位的 `mid`，分享链接里出现的就是它：`https://y.qq.com/n/ryqq_v2/songDetail/<mid>`。
+- 同一首歌常有好几个版本，各自的 id 都不一样：专辑录音室版、现场版（`(Live)`）、合辑收录版、重制版、`(Explicit)` 版和净化版，还有伴奏（`(伴奏)`）。
+  - 比如搜「晴天 周杰伦」，会同时搜到《叶惠美》里的录音室版和好几场演唱会的现场版。
+  - 区分版本时，看 `album.name`、`release_date` 和歌名后缀。
+  - 除非用户点名要现场版或别的版本，否则优先选原专辑的录音室版。
+- CLI 输出的歌曲字段：
 
-### Language and genre codes
+  | 字段                | 含义                                                 |
+  | ------------------- | ---------------------------------------------------- |
+  | `id`、`type`、`mid` | 歌曲标识                                             |
+  | `name`              | 显示的歌名                                           |
+  | `title`             | 只在和 `name` 不同时出现，比如多了 `(Explicit)` 后缀 |
+  | `artist`            | 所有歌手，用斜杠连起来，斜杠前后各一个空格           |
+  | `singers`           | 歌手列表，每项是 `{id, mid, name}`                   |
+  | `album`             | 专辑，`{id, mid, name}`                              |
+  | `duration`          | 时长，单位是秒                                       |
+  | `release_date`      | 发行日期，格式 `YYYY-MM-DD`                          |
+  | `language`、`genre` | 语种和流派的数字代码                                 |
+  | `vip`               | 为 `true` 时，播放这首歌需要 VIP                     |
 
-Text names come from `qqmusic song <refs> --detail` (`language_name`, `genre_name`). These codes were _observed_ by looking up sample songs:
+### 语种和流派代码
 
-| `language` | Name                        |     | `genre` | Name              |
-| ---------- | --------------------------- | --- | ------- | ----------------- |
-| 0          | 国语 (Mandarin), or unknown |     | 1       | Pop               |
-| 1          | 粤语 (Cantonese)            |     | 3       | Jazz              |
-| 3          | 日语 (Japanese)             |     | 12      | Other             |
-| 4          | 韩语 (Korean)               |     | 20      | Dance             |
-| 5          | 英语 (English)              |     | 21      | Easy Listening    |
-| 9          | 纯音乐 (instrumental)       |     | 22      | Electronica       |
-| 20         | 瑞典语 (Swedish)            |     | 23      | Folk              |
-| 24         | 越南语 (Vietnamese)         |     | 31      | New Age           |
-|            |                             |     | 33      | R&B               |
-|            |                             |     | 34      | Rap/Hip Hop       |
-|            |                             |     | 36      | Rock              |
-|            |                             |     | 37      | Soundtrack        |
-|            |                             |     | 50      | Alternative       |
-|            |                             |     | 58      | Singer Songwriter |
+代码对应的文字名称，要用 `qqmusic song <歌曲> --detail` 查（看 `language_name` 和 `genre_name` 字段）。下表是抽样查询真实歌曲得到的（实测）。流派名称保持接口原样返回的英文：
 
-- `genre` 0 means unknown. Many songs, especially Chinese ones, have no genre at all.
-- For codes not listed here, look up one sample song with `--detail`.
-- `--detail` costs one request per song. Use it on a sample or in chunks of about 50 songs, not on the whole library at once.
+| `language` | 语种                 |     | `genre` | 流派              |
+| ---------- | -------------------- | --- | ------- | ----------------- |
+| 0          | 国语，也可能表示未知 |     | 1       | Pop               |
+| 1          | 粤语                 |     | 3       | Jazz              |
+| 3          | 日语                 |     | 12      | Other             |
+| 4          | 韩语                 |     | 20      | Dance             |
+| 5          | 英语                 |     | 21      | Easy Listening    |
+| 9          | 纯音乐               |     | 22      | Electronica       |
+| 20         | 瑞典语               |     | 23      | Folk              |
+| 24         | 越南语               |     | 31      | New Age           |
+|            |                      |     | 33      | R&B               |
+|            |                      |     | 34      | Rap/Hip Hop       |
+|            |                      |     | 36      | Rock              |
+|            |                      |     | 37      | Soundtrack        |
+|            |                      |     | 50      | Alternative       |
+|            |                      |     | 58      | Singer Songwriter |
 
-## Limits and safety
+- `genre` 为 0 表示未知。很多歌根本没有流派信息，华语歌尤其多。
+- 遇到表里没有的代码，挑一首样本歌，用 `--detail` 查一下。
+- `--detail` 每首歌要多发一次请求。适合抽样，或者每批 50 首左右分批查，不要一次查整个曲库。
 
-- Writes go out in batches of 20 songs, with a pause of about one second between batches. The CLI does this for you.
-- Exit code 4 means QQ Music's risk control (code 2001) triggered. Stop writing, tell the user, and wait several minutes. The exact thresholds are _unverified_.
-- Every write is recorded as a run under the CLI data dir (`~/.local/share/qq-music-cli/runs/`). `qqmusic undo <run_id>` reverses it:
-  - an add becomes a remove
-  - a remove becomes an add
-  - a create becomes a delete (only if the playlist is empty, unless `--force`)
-  - a delete recreates the playlist and re-adds its songs
-- Songs restored by undo may come back in a different order (_unverified_).
-- `add` skips songs that are already present, and `remove` reports songs that were not there. Running the same command twice is safe.
+## 限制与安全
 
-## What the CLI cannot do (yet)
+- 写操作每批 20 首，批与批之间间隔一秒左右，CLI 会自动处理。
+- 退出码 4 表示触发了 QQ 音乐的风控（错误码 2001）。这时要立即停止写入，告诉用户，过几分钟再试。风控的具体阈值未验证。
+- 每次写操作都会在 CLI 的数据目录（`~/.local/share/qq-music-cli/runs/`）里记一条 run，`qqmusic undo <run_id>` 能把它撤销：
+  - 加的歌会被删掉
+  - 删的歌会被加回去
+  - 新建的歌单会被删除；只有歌单为空时才删，否则要加 `--force`
+  - 删除的歌单会被重建，原来的歌也会加回去
+- 撤销后加回的歌，顺序可能和原来不一样（未验证）。
+- `add` 会跳过歌单里已有的歌，`remove` 会列出本来就不在歌单里的歌。所以同一条命令执行两次是安全的。
 
-- Reorder songs, rename a playlist, change its description, cover or privacy.
-- Collect or uncollect other people's playlists or albums.
-- Play or download music, or read play history. The official listening report is the closest substitute: `qqmusic report`, which needs `QQMUSIC_API_KEY`.
-- Comments and social features.
+## CLI 暂时做不到的事
 
-If the user asks for one of these, say so plainly and offer what is possible. For example, a rename can be done as create new, copy songs, delete old, which gives the playlist a new `tid`.
+- 调整歌曲顺序；给歌单改名、改简介、换封面、设置公开或私密。
+- 收藏或取消收藏别人的歌单、专辑。
+- 播放、下载音乐，或者读取播放记录。最接近的替代是官方的听歌报告：`qqmusic report`，需要 `QQMUSIC_API_KEY`。
+- 评论和社交功能。
+
+用户提出这类需求时，直接说明做不到，再给出能做到的替代办法。比如改名可以这样绕过去：新建一个歌单，把歌复制过去，再删掉旧的；代价是歌单的 `tid` 变了。

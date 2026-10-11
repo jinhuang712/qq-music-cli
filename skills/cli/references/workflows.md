@@ -1,75 +1,74 @@
-# Library workflows
+# 曲库整理的常见做法
 
-Each recipe follows the same loop. Steps that change the account are marked **(write)**.
+每种做法都按同一套流程走，会改动账号的步骤标了 **（写入）**：
 
-1. Read the state with `qqmusic export` or `qqmusic show`.
-2. Analyse it locally.
-3. Show the user a plan with counts and examples.
-4. Get the user's confirmation.
-5. Run the change with `--dry-run`.
-6. **(write)** Apply the change.
-7. Check the result fields and report the `run_id`s.
+1. 用 `qqmusic export` 或 `qqmusic show` 读取现状。
+2. 在本地分析。
+3. 把方案给用户看，附上数量和例子。
+4. 等用户确认。
+5. 用 `--dry-run` 预演一遍。
+6. **（写入）** 正式执行。
+7. 检查结果字段，把 `run_id` 告诉用户。
 
-The `jq` queries below were tested against a real export.
-`$F` is the export file path from `qqmusic export`, for example `F=$(qqmusic export | jq -r .path)`.
+下面的 `jq` 查询都在真实的导出文件上跑过。`$F` 指 `qqmusic export` 生成的文件路径，例如 `F=$(qqmusic export | jq -r .path)`。
 
-## 1. Library health check (read-only)
+## 1. 曲库体检（只读）
 
-Run this first when the user asks what is going on in their library or wants to clean up.
+用户想知道自己曲库的状况，或者想清理一下时，先做这一步。
 
 ```sh
 F=$(qqmusic export | jq -r .path)
 
-# songs that sit in more than one own playlist (ignoring 我喜欢)
+# 同时出现在多个自建歌单里的歌（不算「我喜欢」）
 jq '[.playlists[] | select(.dir_id != 201) | .name as $p | .songs[] | {id, name, artist, p: $p}]
     | group_by(.id) | map(select(length > 1))' "$F"
 
-# liked songs that are in no other playlist ("未整理")
+# 「我喜欢」里还没进任何其他歌单的歌，也就是「未整理」的歌
 jq '([.playlists[] | select(.dir_id != 201) | .songs[].id] | unique) as $placed
     | [.playlists[] | select(.dir_id == 201) | .songs[] | select(.id as $i | $placed | index($i) | not)]' "$F"
 
-# the same song in several versions (same name and artist, different id)
+# 同一首歌的多个版本（歌名和歌手相同，id 不同）
 jq '[.playlists[].songs[]] | unique_by(.id) | group_by([(.name | ascii_downcase), .artist])
     | map(select(length > 1))' "$F"
 
-# empty and tiny playlists
+# 空歌单和歌很少的歌单
 jq '[.playlists[] | {name, n: (.songs | length)}] | sort_by(.n) | .[:5]' "$F"
 
-# overlap between two playlists
+# 两个歌单的重合部分
 jq '[.playlists[] | select(.name == "RNB") | .songs[].id] as $a
     | [.playlists[] | select(.name == "Chill") | .songs[].id] as $b
     | {both: ([$a[] | select(. as $x | $b | index($x))] | length)}' "$F"
 ```
 
-Report what you found as a short table: counts plus a few examples per finding. Do not change anything until the user picks what to fix.
+把发现的问题整理成一张简短的表：每类问题写数量，再举几个例子。用户选好要处理哪些之前，什么都不要改。
 
-## 2. Organise 我喜欢 into themed playlists
+## 2. 把「我喜欢」整理成主题歌单
 
-Typical asks: "按语言/流派/心情/年代整理我喜欢的歌". The result is a set of playlists that the liked songs are _copied_ into. Never remove songs from 我喜欢.
+典型说法：「按语种、流派、心情或年代整理我喜欢的歌」。最终结果是一组新歌单，「我喜欢」里的歌被**复制**进去。绝不能从「我喜欢」里删歌。
 
-1. Export the library, then choose the grouping.
-   - **Language:** use the `language` code (see concepts.md). It is cheap and exact.
-   - **Genre:** use the `genre` code. Many songs have code 0 (unknown), so fill the gaps with `qqmusic song --stdin --detail` on those songs in chunks of about 50, or classify them by artist.
-   - **Era:** use `release_date`, for example `select((.release_date // "") >= "2020")`.
-   - **Mood, scene or activity** (通勤, 运动, 深夜, 下雨天): use your own judgement from name, artist, album and genre. For the few songs that stay ambiguous, read `qqmusic lyrics`.
-2. Decide the category list with the user, and agree on these points:
-   - At most 15 categories.
-   - Names of 20 characters or fewer.
-   - Reuse existing playlists whose names match exactly.
-   - Put low-confidence songs in a "待整理" playlist instead of guessing.
-   - Decide whether one song may go into several playlists. Allow at most 3.
-3. Show the plan: one line per target playlist with the song count and 3 example songs, plus the size of "待整理".
-4. **(write)** For each category, run `qqmusic create "<name>"`. It returns the existing playlist when the name is already taken.
-5. **(write)** Pipe the song ids in. Run each command with `--dry-run` first.
+1. 导出曲库，再选定分类依据：
+   - **语种**：用 `language` 代码（见 concepts.md），成本低，结果也准。
+   - **流派**：用 `genre` 代码。很多歌的代码是 0（未知），对这些歌用 `qqmusic song --stdin --detail` 分批补查，每批 50 首左右；也可以按歌手来归类。
+   - **年代**：用 `release_date`，例如 `select((.release_date // "") >= "2020")`。
+   - **心情、场景或活动**（通勤、运动、深夜、下雨天）：根据歌名、歌手、专辑和流派自己判断。实在拿不准的少数歌，用 `qqmusic lyrics` 看看歌词。
+2. 和用户商量好分类，并约定下面几点：
+   - 分类不超过 15 个。
+   - 歌单名不超过 20 个字。
+   - 已有同名歌单的，直接沿用。
+   - 拿不准的歌放进「待整理」歌单，不要硬猜。
+   - 一首歌能不能进多个歌单，最多进 3 个。
+3. 给用户看方案：每个目标歌单一行，写明歌曲数量，再举 3 首例子；另外说明「待整理」里有多少首。
+4. **（写入）** 每个分类运行一次 `qqmusic create "<歌单名>"`。歌单名已存在时，它会直接返回已有的歌单。
+5. **（写入）** 用管道把歌曲 id 传进去。每条命令都先加 `--dry-run` 跑一遍。
 
    ```sh
    jq -c '[.playlists[] | select(.dir_id == 201) | .songs[] | select(.language == 1) | {id, type}]' "$F" \
      | qqmusic add "粤语" --stdin
    ```
 
-6. Sum up `added` and `already_present` per playlist, report any `missing_after_write`, and list the `run_id`s.
+6. 按歌单汇总 `added` 和 `already_present`，如果有 `missing_after_write` 要报出来，最后列出所有 `run_id`。
 
-Language buckets for a quick overview:
+想先快速看看各语种各有多少首：
 
 ```sh
 jq '{"0":"国语","1":"粤语","3":"日语","4":"韩语","5":"英语","9":"纯音乐"} as $L
@@ -77,27 +76,27 @@ jq '{"0":"国语","1":"粤语","3":"日语","4":"韩语","5":"英语","9":"纯�
     | group_by(.) | map({lang: .[0], n: length})' "$F"
 ```
 
-## 3. Build a playlist from a description
+## 3. 根据一句描述生成歌单
 
-Typical asks: "做一个下雨天听的华语 R&B 歌单，30 首左右".
+典型说法：「做一个下雨天听的华语 R&B 歌单，30 首左右」。
 
-1. Turn the description into 3–6 search queries: artist names, song titles you know fit, and genre words. Run `qqmusic search "<q>" --limit 20 --fields id,type,name,artist,album,release_date`.
-2. Optionally mine the user's own taste: songs in 我喜欢 or in related playlists that match. A playlist that mixes known favourites with new songs usually works better than search results alone.
-3. Clean up the candidates:
-   - Drop duplicate versions. Keep the studio version unless the user wants live.
-   - Drop accompaniment and karaoke versions.
-   - Respect the requested size.
-4. Show the list (name, artist, album) and let the user strike songs.
-5. **(write)** Create the playlist, then add the songs:
+1. 把描述拆成 3 到 6 个搜索词：歌手名、你知道合适的歌名、流派词。逐个运行 `qqmusic search "<搜索词>" --limit 20 --fields id,type,name,artist,album,release_date`。
+2. 还可以从用户自己的口味里找歌：「我喜欢」或相关歌单里符合描述的歌。把用户熟悉的歌和新歌混在一起，通常比只用搜索结果效果好。
+3. 筛一遍候选：
+   - 去掉重复的版本。除非用户想要现场版，否则留录音室版。
+   - 去掉伴奏和 K 歌版。
+   - 数量控制在用户要求的范围内。
+4. 把歌单列给用户看（歌名、歌手、专辑），让用户划掉不想要的。
+5. **（写入）** 新建歌单，再把歌加进去：
 
    ```sh
-   qqmusic create "<name>"
-   printf '%s\n' <id> <id> ... | qqmusic add "<name>" --stdin
+   qqmusic create "<歌单名>"
+   printf '%s\n' <id> <id> ... | qqmusic add "<歌单名>" --stdin
    ```
 
-## 4. Merge, split or copy playlists
+## 4. 合并、拆分、复制歌单
 
-- **Merge:** the sources stay untouched and `add` removes duplicates.
+- **合并**：源歌单保持不变，重复的歌 `add` 会自动去掉。
 
   ```sh
   qqmusic create "驾驶精选"
@@ -105,20 +104,20 @@ Typical asks: "做一个下雨天听的华语 R&B 歌单，30 首左右".
   qqmusic show "开车" --fields id,type | qqmusic add "驾驶精选" --stdin
   ```
 
-- **Split:** read the source, assign each song to a group as in recipe 2, create the target playlists, then add each group. The source playlist stays unchanged unless the user asks to empty it.
-- **Copy a collected or public playlist into your own:** get the tid from `qqmusic faved playlists` or from a share link `…/playlist/<tid>`.
+- **拆分**：读出源歌单，按第 2 节的办法给每首歌分组，新建目标歌单，再把各组的歌分别加进去。除非用户要求清空，否则源歌单保持不变。
+- **把收藏的歌单或别人的公开歌单复制成自己的**：`tid` 可以从 `qqmusic faved playlists` 里找，也可以从分享链接 `…/playlist/<tid>` 里取。
 
   ```sh
-  qqmusic create "<name>"
-  qqmusic show <tid> --fields id,type | qqmusic add "<name>" --stdin
+  qqmusic create "<歌单名>"
+  qqmusic show <tid> --fields id,type | qqmusic add "<歌单名>" --stdin
   ```
 
-- **Rename:** the CLI cannot rename. Create the new name, copy the songs, check the counts, then `qqmusic delete "<old>" --yes`, but only if the user agrees. The new playlist gets a new tid.
+- **改名**：CLI 不能直接改名。先用新名字建一个歌单，把歌复制过去，核对数量，再运行 `qqmusic delete "<旧名字>" --yes`。删旧歌单前必须征得用户同意，而且新歌单的 `tid` 会变。
 
-## 5. Remove duplicates
+## 5. 去重
 
-- **Same song id in several playlists:** this is often intentional, for example a song in both "RAP" and "通勤". List the cases and ask before removing anything.
-- **Several versions inside one playlist:**
+- **同一首歌出现在多个歌单里**：这往往是用户有意为之，比如一首歌既在「RAP」里又在「通勤」里。把这些情况列出来，问过用户再删。
+- **同一个歌单里有同一首歌的多个版本**：
 
   ```sh
   jq '[.playlists[] | select(.name == "RNB") | .songs[]]
@@ -126,11 +125,11 @@ Typical asks: "做一个下雨天听的华语 R&B 歌单，30 首左右".
       | map(select(length > 1) | map({id, name, album: .album.name, release_date}))' "$F"
   ```
 
-  Propose which version to keep: studio over live, the original album over a compilation. **(write)** Then run `qqmusic remove "<playlist>" <ids...>`.
+  建议保留哪个版本：录音室版优先于现场版，原专辑优先于合辑。**（写入）** 用户同意后运行 `qqmusic remove "<歌单名>" <id...>`。
 
-## 6. Keep a rule-based playlist in sync
+## 6. 按规则同步歌单
 
-Typical asks: "把我喜欢里 Post Malone 的歌都放进 RAP", or "每周把新喜欢的英文歌同步到 英文精选".
+典型说法：「把我喜欢里 Post Malone 的歌都放进 RAP」，或者「每周把新加红心的英文歌同步到英文精选」。
 
 ```sh
 jq -c '([.playlists[] | select(.name == "RAP") | .songs[].id]) as $have
@@ -139,12 +138,12 @@ jq -c '([.playlists[] | select(.name == "RAP") | .songs[].id]) as $have
   | qqmusic add "RAP" --stdin --dry-run
 ```
 
-- Only add the missing songs.
-- Removing songs that no longer match the rule needs explicit permission. The user may have added them by hand.
+- 只补还没加进去的歌。
+- 歌单里有些歌已经不符合规则了，删之前要得到用户明确同意，因为那些可能是用户自己手动加的。
 
-## 7. Organise only the newly liked songs
+## 7. 只整理新加红心的歌
 
-Keep the previous export, export again, and classify only the difference:
+保留上一次的导出文件，再导出一次，只处理两次之间新增的部分：
 
 ```sh
 jq -n --slurpfile old "$OLD" --slurpfile new "$NEW" '
@@ -153,18 +152,18 @@ jq -n --slurpfile old "$OLD" --slurpfile new "$NEW" '
      | {id, type, name, artist}]'
 ```
 
-Then continue with recipe 2 on those songs. Songs that disappeared from 我喜欢 should only be reported, never acted on.
+然后对这些歌按第 2 节的做法继续整理。从「我喜欢」里消失的歌，只报告给用户，不做任何处理。
 
-## 8. Backup and history
+## 8. 备份与历史
 
-- `qqmusic export --out <dir>` writes `library-<timestamp>.json`. It is a complete snapshot of every own playlist with all songs, plus collected playlists and albums. Suggest one before any large reorganisation.
-- `qqmusic runs` lists recent writes. `qqmusic undo <run_id>` reverses one, and the undo is itself a run that can be undone.
+- `qqmusic export --out <目录>` 会生成 `library-<时间戳>.json`，里面是完整的快照：每个自建歌单和其中的全部歌曲，加上收藏的歌单和专辑。大规模整理之前，建议先导出一份。
+- `qqmusic runs` 列出最近的写操作，`qqmusic undo <run_id>` 撤销其中一次。撤销本身也会记成一次 run，所以撤销也能再撤销。
 
-## 9. Clean up
+## 9. 清理
 
-- Find empty or tiny playlists and playlists that have not been updated in a long time. In `qqmusic playlists`, `updated_at` is in unix seconds.
-- Present the candidates, and delete only the ones the user names: `qqmusic delete "<name>" --yes`. Mention that `undo` can recreate a deleted playlist with its songs, but under a new tid.
+- 找出空歌单、歌很少的歌单，以及很久没更新的歌单。`qqmusic playlists` 里的 `updated_at` 是 Unix 时间戳，单位是秒。
+- 把候选列给用户，只删除用户点名的：`qqmusic delete "<歌单名>" --yes`。顺便告诉用户，`undo` 能把删掉的歌单连同里面的歌一起恢复，但 `tid` 会变。
 
-## 10. Listening report (optional)
+## 10. 听歌报告（可选）
 
-`qqmusic report --period d|w|m` returns Tencent's listening report through the official skill API. It includes top songs and artists, genre mix, favourite hour, streaks and cities. It needs `QQMUSIC_API_KEY`, which the user creates at https://y.qq.com/n/ryqq_v2/qqmusic_skills. Use the report to ground recommendations in what the user actually plays.
+`qqmusic report --period d|w|m` 通过腾讯官方的 skill 接口获取听歌报告，内容包括常听的歌和歌手、流派分布、最常听歌的时段、连续听歌天数和听歌城市。它需要 `QQMUSIC_API_KEY`，用户可以在 https://y.qq.com/n/ryqq_v2/qqmusic_skills 自己创建。做推荐时，可以拿这份报告作为依据，贴近用户真实的收听习惯。
