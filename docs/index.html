@@ -327,6 +327,9 @@
         padding: 14px 54px 14px 16px;
         font-size: 13.5px;
         overflow-x: auto;
+      }
+      .code span {
+        display: block;
         white-space: pre;
       }
       .copy {
@@ -572,10 +575,7 @@
                 <h3 data-i18n="s1.h"></h3>
                 <p data-i18n="s1.p"></p>
                 <div class="tabs" role="tablist" id="tabs"></div>
-                <div class="code" id="cmd">
-                  <button class="copy" type="button" data-copy="cmd" data-i18n="copy"></button
-                  ><span></span>
-                </div>
+                <div class="code" id="cmd"><button class="copy" type="button" data-copy="cmd" data-i18n="copy"></button><span></span></div>
                 <div class="shows" id="shows"></div>
               </div>
             </div>
@@ -623,14 +623,7 @@
         <div class="wrap">
           <h2 data-i18n="cli.h"></h2>
           <p class="sub" data-i18n="cli.sub"></p>
-          <div class="code" id="cli">
-            <button class="copy" type="button" data-copy="cli" data-i18n="copy"></button
-            ><span
-              >uv tool install git+https://github.com/jinhuang712/qq-music-cli qqmusic login
-              --wechat qqmusic playlists qqmusic show liked --fields id,type,name,artist qqmusic
-              show RNB --fields id,type | qqmusic add "RNB picks" --stdin --dry-run</span
-            >
-          </div>
+          <div class="code" id="cli"><button class="copy" type="button" data-copy="cli" data-i18n="copy"></button><span></span></div>
         </div>
       </section>
 
@@ -677,9 +670,9 @@
           "start.h": "三步上手",
           "start.sub": "按你用的 agent 选择安装方式，其余的交给 agent。",
           "s1.h": "安装插件",
-          "s1.p": "在终端里运行对应的命令：",
+          "s1.p": "在终端里运行一条命令，插件和 qqmusic CLI 会一起装好，重复运行就是更新。「全部」会给本机装了的每个 agent 都装上：",
           "s2.h": "直接对 agent 说",
-          "s2.p": "如果还没装 CLI，agent 会自己装好，然后发起登录。可以这样说：",
+          "s2.p": "装好后新开一个会话，直接对 agent 说话，它会自己发起登录。可以这样说：",
           "s3.h": "扫码登录",
           "s3.p": "屏幕上会弹出一个小窗口，用微信或 QQ 扫码确认即可。",
           "s3.l1": "这是唯一需要你动手的一步",
@@ -700,30 +693,43 @@
       };
       const INSTALL = [
         {
+          id: "all",
+          label: "全部",
+          cmd: "curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install.sh | bash",
+          shows: "qq-music:cli 或 qq-music-cli",
+        },
+        {
           id: "claude",
           label: "Claude Code",
-          cmd: "claude plugin marketplace add jinhuang712/qq-music-cli\nclaude plugin install qq-music@qq-music",
+          cmd: "curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-claude.sh | bash",
           shows: "qq-music:cli",
         },
         {
           id: "codex",
           label: "Codex",
-          cmd: "codex plugin marketplace add jinhuang712/qq-music-cli\ncodex plugin add qq-music@qq-music",
+          cmd: "curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-codex.sh | bash",
           shows: "qq-music:cli",
         },
         {
           id: "pi",
           label: "Pi",
-          cmd: "pi install git:github.com/jinhuang712/qq-music-cli",
+          cmd: "curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-pi.sh | bash",
           shows: "qq-music-cli",
         },
         {
           id: "opencode",
           label: "OpenCode",
-          cmd: "git clone https://github.com/jinhuang712/qq-music-cli ~/.local/share/qq-music-cli-src\nln -s ~/.local/share/qq-music-cli-src/flat-skills/qq-music-cli ~/.config/opencode/skills/qq-music-cli",
+          cmd: "curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-opencode.sh | bash",
           shows: "qq-music-cli",
         },
       ];
+      const CLI_EXAMPLE = [
+        "uv tool install git+https://github.com/jinhuang712/qq-music-cli",
+        "qqmusic login --wechat",
+        "qqmusic playlists",
+        "qqmusic show liked --fields id,type,name,artist",
+        'qqmusic show RNB --fields id,type | qqmusic add "RNB精选" --stdin --dry-run',
+      ].join("\n");
       const PROMPTS = [
         "看看我的曲库有什么问题",
         "把我喜欢的歌按语言整理成歌单",
@@ -745,7 +751,7 @@
           } catch (e) {}
         },
       };
-      let agent = store.get("agent") || "claude";
+      let agent = store.get("agent") || "all";
 
       function render() {
         const t = I18N.zh;
@@ -773,6 +779,7 @@
         });
         const cur = INSTALL.find((it) => it.id === agent) || INSTALL[0];
         document.querySelector("#cmd span").textContent = cur.cmd;
+        document.querySelector("#cli span").textContent = CLI_EXAMPLE;
         document.getElementById("shows").innerHTML = `${t.shows} <code>${cur.shows}</code>`;
         document.getElementById("prompts").innerHTML = PROMPTS.map(
           (p) => `<span class="prompt">“${p}”</span>`,

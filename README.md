@@ -30,19 +30,49 @@
 
 ## 快速开始（配合 agent）
 
-1. **在 agent 里安装插件**，各渠道的安装方式见下表。
+**第一步：安装。** 下面这条命令会检测你装了哪些 agent（Claude Code、Codex、Pi、OpenCode），给每个都装好插件，再装上 `qqmusic` 命令行工具：
 
-   | Agent       | 安装                                                                                                                                                                                             | skill 显示为   |
-   | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
-   | Claude Code | `claude plugin marketplace add jinhuang712/qq-music-cli && claude plugin install qq-music@qq-music`                                                                                              | `qq-music:cli` |
-   | Codex       | `codex plugin marketplace add jinhuang712/qq-music-cli && codex plugin add qq-music@qq-music`                                                                                                    | `qq-music:cli` |
-   | Pi          | `pi install git:github.com/jinhuang712/qq-music-cli`                                                                                                                                             | `qq-music-cli` |
-   | OpenCode    | `git clone https://github.com/jinhuang712/qq-music-cli ~/.local/share/qq-music-cli-src && ln -s ~/.local/share/qq-music-cli-src/flat-skills/qq-music-cli ~/.config/opencode/skills/qq-music-cli` | `qq-music-cli` |
+```sh
+curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install.sh | bash
+```
 
-2. **直接对 agent 说**，比如「把我喜欢的歌按语言整理成歌单」。
-   - 如果需要，agent 会自己安装 CLI。
-   - 然后 agent 会发起登录，弹出一个显示二维码的小窗口，你用微信或 QQ 扫码即可。扫码是唯一需要你动手的步骤。
-   - 登录 key 有效期 3 天，会自动续期。
+只想装某一个 agent，就用对应的脚本：
+
+**Claude Code**，装好后 skill 显示为 `qq-music:cli`：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-claude.sh | bash
+```
+
+**Codex**，装好后 skill 显示为 `qq-music:cli`：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-codex.sh | bash
+```
+
+**Pi**，装好后 skill 显示为 `qq-music-cli`：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-pi.sh | bash
+```
+
+**OpenCode**，装好后 skill 显示为 `qq-music-cli`：
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-opencode.sh | bash
+```
+
+关于这些脚本：
+
+- 重复运行就是更新，插件和 CLI 都会更新到最新版。
+- 安装 CLI 需要 [uv](https://docs.astral.sh/uv/)。没装 uv 时，脚本只装插件并给出提示；装好 uv 后再运行一次就行。
+- 不想动 CLI，就在命令前加 `QQMUSIC_SKIP_CLI=1`。
+- 想先看看脚本做了什么，可以在仓库根目录直接打开 `install*.sh`，每个只有几十行。
+
+**第二步：直接对 agent 说**，比如「把我喜欢的歌按语言整理成歌单」。
+
+- agent 会发起登录，弹出一个显示二维码的小窗口，你用微信或 QQ 扫码即可。扫码是唯一需要你动手的步骤。
+- 登录 key 有效期 3 天，会自动续期。
 
 ## 直接使用 CLI
 
@@ -125,6 +155,8 @@ uv sync
 uv run pytest -q                           # 离线测试，用 httpx.MockTransport 模拟所有服务器
 uv run python scripts/sync_flat_skill.py   # 修改 skills/cli/ 之后运行
 ```
+
+改了 skill 之后，要把版本号同时升到 `pyproject.toml`、`src/qq_music_cli/__init__.py` 和三份插件清单里（测试会检查它们是否一致）。Claude Code 和 Codex 按版本号缓存插件，版本号不变，用户重跑安装脚本也拿不到新内容。
 
 ## 致谢
 
