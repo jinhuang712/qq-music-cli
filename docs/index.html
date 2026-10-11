@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>qq-music-cli</title>
-<meta name="description" content="Let your coding agent manage your QQ Music library. A CLI plus an agent skill for Claude Code, Codex, Pi and OpenCode. Unofficial.">
+<meta name="description" content="让 coding agent 帮你打理 QQ 音乐歌单：一个命令行工具，加一份给 Claude Code、Codex、Pi、OpenCode 看的使用指南。非官方项目。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236d5dfc'/%3E%3Cpath d='M12 22.5a3 3 0 1 1-2-2.83V9l11-2.5v12.5a3 3 0 1 1-2-2.83V10.2l-7 1.6z' fill='white'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -42,7 +42,6 @@
   .nav a, .nav button { font: inherit; font-size: 14px; color: var(--muted); background: none; border: 1px solid transparent;
                         border-radius: 8px; padding: 6px 10px; cursor: pointer; text-decoration: none; }
   .nav a:hover, .nav button:hover { color: var(--fg); background: var(--surface-2); }
-  .nav .lang { border-color: var(--line); color: var(--fg); }
 
   .hero { padding: 88px 0 56px; text-align: center; }
   .tag { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--accent); background: var(--accent-soft);
@@ -125,7 +124,6 @@
     <nav class="nav">
       <a href="#start" data-i18n="nav.start"></a>
       <a class="gh" href="https://github.com/jinhuang712/qq-music-cli">GitHub</a>
-      <button class="lang" id="lang" type="button" aria-label="Switch language"></button>
     </nav>
   </div>
 </header>
@@ -261,38 +259,6 @@ const I18N = {
     "copy": "复制", "copied": "已复制",
     "note": "<strong>免责声明：</strong>本项目是非官方的个人项目，与腾讯、QQ 音乐没有任何关联，也未获其认可。它调用的是 y.qq.com 网页端未公开的接口，随时可能变化或失效。请只用于你自己的账号，风险自负，并遵守 QQ 音乐的服务条款。本工具只管理歌单信息，不播放、不下载、也不解密任何音频。",
     "footer": "qq-music-cli · <a href=\"https://github.com/jinhuang712/qq-music-cli\">GitHub</a> · MIT License · 非官方项目",
-    "lang": "EN",
-  },
-  en: {
-    "nav.start": "Get started",
-    "hero.tag": "Unofficial · Open source · MIT",
-    "hero.title": "Let your coding agent run your<br><em>QQ Music library</em>",
-    "hero.lede": "A command-line tool plus a usage guide for coding agents. Read your playlists and liked songs, sort them by language, genre or mood, and add, dedupe or merge songs in bulk. Every change can be previewed and undone.",
-    "hero.cta": "Get started",
-    "feat.h": "What your agent can do",
-    "feat.sub": "Everything comes from your own account. It manages playlist metadata only and never touches audio.",
-    "f1.h": "Read the whole library", "f1.p": "Your playlists, 我喜欢 (liked songs) beyond the web page's first page, collected playlists and albums, plus album, duration, language and genre for every song.",
-    "f2.h": "Organise liked songs", "f2.p": "Sort by language, genre, era, mood or scene into playlists. Unsure songs go to a review list, and 我喜欢 itself is never changed.",
-    "f3.h": "Playlists from one sentence", "f3.p": "“About 30 Mandopop R&B songs for a rainy day”: it searches, mixes in your taste, drops duplicate versions, and creates the playlist once you confirm.",
-    "f4.h": "Bulk edits you can undo", "f4.p": "Batches of 20, read back after writing, and songs already present are skipped. Every write is logged as a run, so qqmusic undo reverses it.",
-    "f5.h": "Library health check", "f5.p": "Export the library and find duplicates across playlists, multiple versions of one song, liked songs that sit in no playlist, and near-empty playlists.",
-    "f6.h": "One scan, then hands-off", "f6.p": "Your agent opens the login window and you just scan it. The session is kept in the Keychain for 3 days and refreshes itself.",
-    "start.h": "Three steps",
-    "start.sub": "Pick your agent; the agent handles the rest.",
-    "s1.h": "Install the plugin", "s1.p": "Run the command for your agent:",
-    "s2.h": "Ask your agent", "s2.p": "If the CLI is missing, the agent installs it, then starts the login. Try:",
-    "s3.h": "Scan to log in", "s3.p": "A small window pops up. Scan it with WeChat or QQ and confirm.",
-    "s3.l1": "This is the only manual step",
-    "s3.l2": "The window is a local page on 127.0.0.1 and closes after login",
-    "s3.l3": "Credentials stay in your macOS Keychain",
-    "mock.t": "QQ Music login", "mock.s": "Scan with WeChat", "mock.st": "Logged in",
-    "shows": "Shows up in your agent as:",
-    "cli.h": "Or use the CLI directly",
-    "cli.sub": "Each command prints one JSON document, so it chains well in scripts and agents.",
-    "copy": "Copy", "copied": "Copied",
-    "note": "<strong>Disclaimer:</strong> this is an unofficial personal project. It is not affiliated with, endorsed by, or connected to Tencent or QQ Music. It uses the undocumented web API behind y.qq.com, which can change or break at any time. Use it only with your own account, at your own risk, and within QQ Music's terms of service. It manages playlist metadata only and does not play, download or decrypt any audio.",
-    "footer": "qq-music-cli · <a href=\"https://github.com/jinhuang712/qq-music-cli\">GitHub</a> · MIT License · Unofficial project",
-    "lang": "中文",
   },
 };
 const INSTALL = [
@@ -301,22 +267,16 @@ const INSTALL = [
   { id: "pi", label: "Pi", cmd: "pi install git:github.com/jinhuang712/qq-music-cli", shows: "qq-music-cli" },
   { id: "opencode", label: "OpenCode", cmd: "git clone https://github.com/jinhuang712/qq-music-cli ~/.local/share/qq-music-cli-src\nln -s ~/.local/share/qq-music-cli-src/flat-skills/qq-music-cli ~/.config/opencode/skills/qq-music-cli", shows: "qq-music-cli" },
 ];
-const PROMPTS = {
-  zh: ["看看我的曲库有什么问题", "把我喜欢的歌按语言整理成歌单", "做一个适合通勤的歌单，30 首左右", "把「通勤」和「开车」合并成一个"],
-  en: ["Give my library a health check", "Sort my liked songs into playlists by language", "Make a 30-song commute playlist", "Merge “Commute” and “Drive” into one"],
-};
+const PROMPTS = ["看看我的曲库有什么问题", "把我喜欢的歌按语言整理成歌单", "做一个适合通勤的歌单，30 首左右", "把「通勤」和「开车」合并成一个"];
 
 const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
                 set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
-let lang = store.get("lang") || ((navigator.language || "").toLowerCase().startsWith("zh") ? "zh" : "en");
 let agent = store.get("agent") || "claude";
 
 function render() {
-  const t = I18N[lang];
-  document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+  const t = I18N.zh;
   document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t[el.dataset.i18n]; });
   document.querySelectorAll("[data-i18n-html]").forEach((el) => { el.innerHTML = t[el.dataset.i18nHtml]; });
-  document.getElementById("lang").textContent = t.lang;
   const tabs = document.getElementById("tabs");
   tabs.innerHTML = "";
   INSTALL.forEach((it) => {
@@ -329,17 +289,16 @@ function render() {
   const cur = INSTALL.find((it) => it.id === agent) || INSTALL[0];
   document.querySelector("#cmd span").textContent = cur.cmd;
   document.getElementById("shows").innerHTML = `${t.shows} <code>${cur.shows}</code>`;
-  document.getElementById("prompts").innerHTML = PROMPTS[lang].map((p) => `<span class="prompt">“${p}”</span>`).join("");
+  document.getElementById("prompts").innerHTML = PROMPTS.map((p) => `<span class="prompt">“${p}”</span>`).join("");
 }
 
-document.getElementById("lang").onclick = () => { lang = lang === "zh" ? "en" : "zh"; store.set("lang", lang); render(); };
 document.addEventListener("click", async (ev) => {
   const btn = ev.target.closest(".copy");
   if (!btn) return;
   const text = document.querySelector(`#${btn.dataset.copy} span`).textContent;
-  try { await navigator.clipboard.writeText(text); btn.textContent = I18N[lang].copied; }
+  try { await navigator.clipboard.writeText(text); btn.textContent = I18N.zh.copied; }
   catch (e) { btn.textContent = "⌘C"; }
-  setTimeout(() => { btn.textContent = I18N[lang].copy; }, 1400);
+  setTimeout(() => { btn.textContent = I18N.zh.copy; }, 1400);
 });
 render();
 </script>

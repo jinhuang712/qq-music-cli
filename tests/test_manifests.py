@@ -44,6 +44,13 @@ def test_license_is_mit_everywhere():
         assert load(rel)["license"] == "MIT", rel
 
 
+def test_display_name_keeps_qq_uppercase():
+    # UIs title-case the kebab name `qq-music` into "Qq Music"; displayName overrides that.
+    assert load(".claude-plugin/plugin.json")["displayName"] == "QQ Music"
+    assert load(".claude-plugin/marketplace.json")["plugins"][0]["displayName"] == "QQ Music"
+    assert "displayName" not in load("plugin.json")  # agent-plugins.org schema forbids extra keys
+
+
 def test_pi_package_points_at_skills():
     pkg = load("package.json")
     assert "pi-package" in pkg["keywords"]
