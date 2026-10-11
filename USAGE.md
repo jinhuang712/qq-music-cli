@@ -24,6 +24,7 @@ qqmusic logout             # 删除保存的凭证
 | `qqmusic show <歌单> [--fields id,name,artist] [--limit N]` | 列出歌单里的歌，`<歌单>` 可以写名字、`dir_id`、`tid` 或 `liked` |
 | `qqmusic liked`                                             | 列出「我喜欢」                                                  |
 | `qqmusic faved playlists` / `qqmusic faved albums`          | 列出收藏的歌单或专辑                                            |
+| `qqmusic following` / `qqmusic following users`             | 列出关注的歌手或用户                                            |
 | `qqmusic song <歌曲...> [--detail]`                         | 歌曲信息。加 `--detail` 返回文字版的流派、语种、唱片公司        |
 | `qqmusic search <关键词> [--type <类型>]`                   | 搜索，类型可选 song、album、playlist、singer、mv、lyric、user   |
 | `qqmusic lyrics <歌曲>`                                     | 歌词（LRC 格式）和翻译                                          |
@@ -33,6 +34,7 @@ qqmusic logout             # 删除保存的凭证
 | `qqmusic remove <歌单> <歌曲...> [--stdin]`                 | 删歌                                                            |
 | `qqmusic like <歌曲...>` / `qqmusic unlike <歌曲...>`       | 加红心、取消红心                                                |
 | `qqmusic delete <歌单> --yes`                               | 删除歌单。删除前把歌曲列表存档，撤销时能重建                    |
+| `qqmusic edit <歌单> [--name 新名字] [--desc 新简介]`       | 改名、改简介。封面、标签、是否公开保持不变，可以撤销            |
 | `qqmusic runs` / `qqmusic undo <run_id>`                    | 查看写操作记录，撤销某次写操作                                  |
 | `qqmusic raw <module> <method> --param '{}'`                | 直接调用任意 `musicu.fcg` 接口，用于探索                        |
 | `qqmusic report --period d\|w\|m`                           | 听歌报告，走腾讯官方 skill 接口，需要 `QQMUSIC_API_KEY`         |

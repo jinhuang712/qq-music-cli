@@ -1,6 +1,6 @@
 ---
 name: cli
-description: 用 `qqmusic` 命令行管理用户自己的 QQ 音乐曲库。适用于：查看歌单和「我喜欢」、查歌曲信息、搜索曲库、新建或删除歌单、批量加歌删歌、加红心、导出整个曲库、撤销改动。也适用于整理类的需求，比如把「我喜欢」按语种、流派或心情分进不同歌单，根据一句描述生成歌单，合并、拆分、去重歌单，给曲库做一次体检。
+description: 用 `qqmusic` 命令行管理用户自己的 QQ 音乐曲库。适用于：查看歌单和「我喜欢」、查看关注的歌手、查歌曲信息、搜索曲库、新建、删除或改名歌单、批量加歌删歌、加红心、导出整个曲库、撤销改动。也适用于整理类的需求，比如把「我喜欢」按语种、流派或心情分进不同歌单，根据一句描述生成歌单，合并、拆分、去重歌单，给曲库做一次体检，分析用户的口味和曲风。
 compatibility: 需要 PATH 里有 `qqmusic` 命令（qq-music-cli，Python 3.11+，用 uv 安装）；钥匙串存储和登录窗口依赖 macOS；需要能访问 y.qq.com。
 ---
 
@@ -36,6 +36,7 @@ command -v qqmusic && qqmusic --compact status
 | 看歌单里有哪些歌。歌单可以写名字、`dir_id`、`tid` 或 `liked`，任何公开歌单的 `tid` 也行 | `qqmusic show "RNB" --fields id,type,name,artist,album,duration,release_date`                                         |
 | 看「我喜欢」                                                                            | `qqmusic liked --fields id,type,name,artist`                                                                          |
 | 看收藏的歌单、专辑                                                                      | `qqmusic faved playlists`、`qqmusic faved albums`                                                                     |
+| 看关注的歌手、用户                                                                      | `qqmusic following`、`qqmusic following users`                                                                        |
 | 查歌曲信息                                                                              | `qqmusic song 97773 0039MnYb0qxYhV`                                                                                   |
 | 查文字版的流派、语种、唱片公司                                                          | `qqmusic song <歌曲> --detail`（每首歌多一次请求）                                                                    |
 | 搜索                                                                                    | `qqmusic search "晴天 周杰伦" --type song --limit 10`（`--type` 可选 song、singer、album、playlist、mv、lyric、user） |
@@ -46,6 +47,7 @@ command -v qqmusic && qqmusic --compact status
 | 删歌                                                                                    | `qqmusic remove "通勤" 97773`                                                                                         |
 | 加红心、取消红心                                                                        | `qqmusic like 97773`、`qqmusic unlike 97773`                                                                          |
 | 删除歌单（歌曲列表会先存档，可以撤销）                                                  | `qqmusic delete "通勤" --yes`                                                                                         |
+| 给歌单改名、改简介（封面、标签、是否公开保持不变，可以撤销）                            | `qqmusic edit "通勤" --name "上班路上" --desc "早高峰听"`                                                             |
 | 预演任何写操作                                                                          | 加 `--dry-run`                                                                                                        |
 | 查看写操作记录、撤销某次写操作                                                          | `qqmusic runs`、`qqmusic undo <run_id>`                                                                               |
 | 听歌报告（需要 `QQMUSIC_API_KEY`）                                                      | `qqmusic report --period m`                                                                                           |

@@ -101,6 +101,16 @@ def faved_album(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def followed(raw: dict[str, Any]) -> dict[str, Any]:
+    """A followed singer or user from `music.concern.RelationList`."""
+    return {
+        "name": (raw.get("Name") or "").strip(),
+        "mid": raw.get("MID") or None,
+        "euin": raw.get("EncUin") or None,
+        "fans": raw.get("FanNum"),
+    }
+
+
 def song_detail(raw: dict[str, Any]) -> dict[str, Any]:
     """`get_song_detail_yqq`: the only call that returns genre / language / release as text."""
     info = raw.get("info") or {}

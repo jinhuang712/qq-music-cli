@@ -17,6 +17,13 @@ from .runs import RunLog
 WRITE_BATCH = 20  # songs per add/remove call; conservative, not a documented server cap
 TRACK_BATCH = 50  # ids per CgiGetTrackInfo call
 PAGE_SIZE = 500  # songs per uniform_get_Dissinfo page; the server returned 285 songs in one page
+FOLLOW_PAGE = 100  # largest page size observed to work for GetFollowSingerList
+FOLLOW_METHODS = {"singers": "GetFollowSingerList", "users": "GetFollowUserList"}
+# What y.qq.com's playlist editor sends: every editable field at once. Values we do not change are
+# read back first and sent unchanged, so the cover, tags and visibility survive a rename.
+EDIT_MASK = 95
+UNEDITABLE_DIRS = range(201, 207)  # 我喜欢 and other system lists; the web editor refuses these too
+NAME_MAX, DESC_MAX = 20, 2000  # limits the web editor enforces
 SEARCH_TYPES = {"song": 0, "singer": 1, "album": 2, "playlist": 3, "mv": 4, "lyric": 7, "user": 8}
 
 
@@ -159,6 +166,25 @@ class Library:
             if not page or not data.get("hasmore"):
                 return out
 
+    def following(self, kind: str = "singers") -> list[dict[str, Any]]:
+        """Singers or users the account follows (`music.concern.RelationList`), all pages."""
+        if kind not in FOLLOW_METHODS:
+            raise UsageError("kind must be `singers` or `users`")
+        euin = self.client.credential.euin if self.client.credential else ""
+        if not euin:
+            raise AuthError("credential has no euin; log in again")
+        out: list[dict[str, Any]] = []
+        while True:
+            data = self.client.rpc(
+                "music.concern.RelationList",
+                FOLLOW_METHODS[kind],
+                {"HostUin": euin, "From": len(out), "Size": FOLLOW_PAGE},
+            )
+            page = data.get("List") or []
+            out.extend(models.followed(x) for x in page)
+            if not page or not data.get("HasMore"):
+                return out
+
     # -- songs ------------------------------------------------------------------------------
 
     def tracks(self, refs: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -275,6 +301,59 @@ class Library:
         run.record({"op": "create", "playlist": created})
         self._playlists = None
         return {"created": True, "playlist": created}
+
+    def playlist_meta(self, dir_id: int) -> dict[str, Any]:
+        """Editable fields of an own playlist, read the way the web editor reads them."""
+        data = self.client.rpc(
+            "music.srfDissInfo.aiDissInfo",
+            "uniform_get_Dissinfo",
+            {"dirid": dir_id, "optype": 3, "tag": 1, "userinfo": 0, "pic_dpi": 300},
+        )
+        info = data.get("dirinfo")
+        if not info:
+            raise ApiError(f"could not read playlist dir_id {dir_id}", data=data)
+        return info
+
+    def edit_playlist(
+        self, pl: dict[str, Any], *, run: RunLog, name: str | None = None, desc: str | None = None
+    ) -> dict[str, Any]:
+        _require_own(pl)
+        if pl["dir_id"] in UNEDITABLE_DIRS:
+            raise UsageError("this playlist cannot be renamed or edited (QQ Music does not allow it)")
+        if name is not None:
+            name = name.strip()
+            if not name or len(name) > NAME_MAX:
+                raise UsageError(f"playlist name must be 1-{NAME_MAX} characters")
+        if desc is not None and len(desc) > DESC_MAX:
+            raise UsageError(f"description must be at most {DESC_MAX} characters")
+        info = self.playlist_meta(pl["dir_id"])
+        before = {"name": info.get("title") or "", "desc": info.get("desc") or ""}
+        after = {"name": before["name"] if name is None else name, "desc": before["desc"] if desc is None else desc}
+        report: dict[str, Any] = {"playlist": _pl_ref(pl), "before": before, "after": after, "dry_run": run.dry_run}
+        if after == before:
+            return {**report, "changed": False}
+        if run.dry_run:
+            return {**report, "changed": False}
+        tags = ",".join(str(t.get("id")) for t in info.get("tag") or [] if isinstance(t, dict) and t.get("id"))
+        self.client.rpc(
+            "music.musicasset.PlaylistBaseWrite",
+            "EditPlaylist",
+            {
+                "dirId": pl["dir_id"],
+                "mask": EDIT_MASK,
+                "dirNewName": after["name"],
+                "dirNewDesc": after["desc"],
+                "dirNewPicUrl": info.get("picurl") or "",
+                "dirNewPicUrl2": info.get("picurl2") or "",
+                "dirNewtaglist": tags,
+                "dirShow": info.get("dir_show", 1),
+            },
+        )
+        run.record({"op": "edit", "playlist": _pl_ref(pl), "before": before, "after": after})
+        check = self.playlist_meta(pl["dir_id"])
+        seen = {"name": check.get("title") or "", "desc": check.get("desc") or ""}
+        self._playlists = None
+        return {**report, "changed": True, "verified": seen == after, "now": seen}
 
     def delete_playlist(self, pl: dict[str, Any], *, run: RunLog) -> dict[str, Any]:
         if pl.get("liked") or pl.get("dir_id") == LIKED_DIR_ID:
@@ -398,6 +477,11 @@ class Library:
                         continue
                     self.delete_playlist(pl, run=run)
                     results.append({"undo": "create", "deleted": pl["name"]})
+                elif kind == "edit":
+                    pl = self._current(op["playlist"])
+                    old = op["before"]
+                    self.edit_playlist(pl, run=run, name=old["name"], desc=old["desc"])
+                    results.append({"undo": "edit", "restored": old["name"], "playlist": pl["name"]})
                 elif kind == "delete":
                     created = self.create_playlist(op["playlist"]["name"], run=run, allow_duplicate=True)
                     pl = self._current(created["playlist"]) if not run.dry_run else created["playlist"]
@@ -430,6 +514,7 @@ class Library:
             "playlists": lists,
             "faved_playlists": self.faved_playlists(),
             "faved_albums": self.faved_albums(),
+            "following_singers": self.following("singers"),
         }
 
 

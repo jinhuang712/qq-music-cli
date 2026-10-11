@@ -250,6 +250,17 @@ def faved(kind: str = typer.Argument("playlists", help="`playlists` or `albums`.
 
 
 @app.command()
+def following(
+    kind: str = typer.Argument("singers", help="`singers` or `users`."),
+    fields: str | None = typer.Option(None, help="Comma-separated fields to keep, e.g. name,fans."),
+) -> None:
+    """List the singers (or users) you follow (关注)."""
+    lib = _library()
+    key = "singers" if kind.startswith("singer") else "users" if kind.startswith("user") else kind
+    emit([project(x, _fields(fields)) for x in lib.following(key)])
+
+
+@app.command()
 def song(
     songs: list[str] = typer.Argument(None, help="Song ids, id:type pairs or mids."),
     stdin: bool = typer.Option(False, "--stdin", help="Also read song refs from stdin."),
@@ -329,6 +340,22 @@ def create(
     """Create a playlist. Returns the existing one if the name is already taken."""
     run = RunLog(f"create {name}", dry_run=dry_run)
     _finish(run, _library().create_playlist(name, run=run, allow_duplicate=allow_duplicate))
+
+
+@app.command()
+def edit(
+    playlist: str = typer.Argument(..., help="Your playlist: name, dir_id or tid."),
+    name: str | None = typer.Option(None, "--name", help="New name (1-20 characters)."),
+    desc: str | None = typer.Option(None, "--desc", help="New description (up to 2000 characters)."),
+    dry_run: bool = _dry,
+) -> None:
+    """Rename a playlist or change its description. Cover, tags and visibility stay as they are."""
+    if name is None and desc is None:
+        raise UsageError("give --name, --desc, or both")
+    lib = _library()
+    pl = lib.resolve_playlist(playlist)
+    run = RunLog(f"edit {pl['name']}", dry_run=dry_run)
+    _finish(run, lib.edit_playlist(pl, run=run, name=name, desc=desc))
 
 
 @app.command()

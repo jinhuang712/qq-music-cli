@@ -112,6 +112,10 @@ class FakeQQMusic:
         self.calls: list[tuple[str, str, dict[str, Any]]] = []
         self.max_visible: int | None = None  # server stops returning songs after this many (hasmore=0)
         self.add_playlist("我喜欢", dir_id=201, tid=5001)
+        self.followed_singers = [
+            {"Name": f"Singer {i}", "MID": f"SMID{i:010d}", "FanNum": 1000 + i} for i in range(250)
+        ]
+        self.followed_users = [{"Name": "Some User", "MID": "", "EncUin": "user_euin_1", "FanNum": 3}]
 
     # -- state helpers
     def add_playlist(
@@ -121,7 +125,17 @@ class FakeQQMusic:
             dir_id, self._next_dir = self._next_dir, self._next_dir + 1
         if tid is None:
             tid, self._next_tid = self._next_tid, self._next_tid + 1
-        pl = {"dirId": dir_id, "tid": tid, "dirName": name, "songs": list(songs or [])}
+        pl = {
+            "dirId": dir_id,
+            "tid": tid,
+            "dirName": name,
+            "songs": list(songs or []),
+            "desc": "",
+            "picurl": "http://example.invalid/cover.jpg",
+            "picurl2": "",
+            "tags": [{"id": 11, "name": "R&B"}, {"id": 22, "name": "Chill"}],
+            "dir_show": 1,
+        }
         self.playlists.append(pl)
         return pl
 
@@ -168,6 +182,23 @@ class FakeQQMusic:
         }
 
     def rpc_uniform_get_Dissinfo(self, p):
+        if "disstid" not in p:  # the web editor's read: by dirid, editable fields only
+            pl = self.by_dir(p["dirid"])
+            if pl is None:
+                return {"code": 1, "msg": "no such playlist"}
+            return {
+                "code": 0,
+                "dirinfo": {
+                    "id": pl["tid"],
+                    "dirid": pl["dirId"],
+                    "title": pl["dirName"],
+                    "desc": pl["desc"],
+                    "picurl": pl["picurl"],
+                    "picurl2": pl["picurl2"],
+                    "tag": pl["tags"],
+                    "dir_show": pl["dir_show"],
+                },
+            }
         pl = next((x for x in self.playlists if x["tid"] == p["disstid"]), None)
         if pl is None:
             return {"code": 1, "msg": "no such playlist"}
@@ -219,6 +250,30 @@ class FakeQQMusic:
                 pl["songs"].remove(s["songId"])
                 removed += 1
         return {"result": {"dirId": p["dirId"] if removed else 0}}
+
+    def rpc_EditPlaylist(self, p):
+        pl = self.by_dir(p["dirId"])
+        pl["dirName"], pl["desc"] = p["dirNewName"], p["dirNewDesc"]
+        pl["picurl"], pl["picurl2"], pl["dir_show"] = p["dirNewPicUrl"], p["dirNewPicUrl2"], p["dirShow"]
+        ids = [int(x) for x in p["dirNewtaglist"].split(",") if x]
+        pl["tags"] = [t for t in pl["tags"] if t["id"] in ids]
+        return {"result": {"dirId": p["dirId"]}}
+
+    def _follow_page(self, items, p):
+        page = items[p["From"] : p["From"] + p["Size"]]
+        return {"List": page, "Total": len(items), "HasMore": p["From"] + len(page) < len(items)}
+
+    def rpc_GetFollowSingerList(self, p):
+        return self._follow_page(self.followed_singers, p)
+
+    def rpc_GetFollowUserList(self, p):
+        return self._follow_page(self.followed_users, p)
+
+    def rpc_CgiGetPlaylistFavInfo(self, p):
+        return {"v_list": [], "hasmore": 0}
+
+    def rpc_CgiGetAlbumFavInfo(self, p):
+        return {"v_list": [], "hasmore": 0}
 
     def rpc_GetLoginUserInfo(self, p):
         return {"info": {"nick": "Fake Nick", "logo": "http://example.invalid/a.png"}}

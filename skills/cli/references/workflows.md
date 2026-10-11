@@ -112,7 +112,7 @@ jq '{"0":"国语","1":"粤语","3":"日语","4":"韩语","5":"英语","9":"纯�
   qqmusic show <tid> --fields id,type | qqmusic add "<歌单名>" --stdin
   ```
 
-- **改名**：CLI 不能直接改名。先用新名字建一个歌单，把歌复制过去，核对数量，再运行 `qqmusic delete "<旧名字>" --yes`。删旧歌单前必须征得用户同意，而且新歌单的 `tid` 会变。
+- **改名、改简介**：**（写入）** `qqmusic edit "<歌单名>" --name "<新名字>" --desc "<新简介>"`。`tid` 不变，封面、标签、是否公开都保持原样，`qqmusic undo <run_id>` 可以改回去。
 
 ## 5. 去重
 
@@ -167,3 +167,41 @@ jq -n --slurpfile old "$OLD" --slurpfile new "$NEW" '
 ## 10. 听歌报告（可选）
 
 `qqmusic report --period d|w|m` 通过腾讯官方的 skill 接口获取听歌报告，内容包括常听的歌和歌手、流派分布、最常听歌的时段、连续听歌天数和听歌城市。它需要 `QQMUSIC_API_KEY`，用户可以在 https://y.qq.com/n/ryqq_v2/qqmusic_skills 自己创建。做推荐时，可以拿这份报告作为依据，贴近用户真实的收听习惯。
+
+## 11. 口味分析（只读）
+
+典型说法：「分析一下我最喜欢的音乐曲风」「我关注了哪些歌手？哪些关注了却很少收藏？」。
+
+这里分析的是用户**收藏了什么**，不是**听了什么**。回答时要说清楚这一点。
+
+```sh
+F=$(qqmusic export | jq -r .path)
+
+# 「我喜欢」的流派分布（代码对照见 concepts.md）
+jq '{"1":"Pop","3":"Jazz","12":"Other","20":"Dance","21":"Easy Listening","22":"Electronica","23":"Folk","31":"New Age","33":"R&B","34":"Rap/Hip Hop","36":"Rock","37":"Soundtrack","50":"Alternative","58":"Singer Songwriter"} as $G
+    | [.playlists[] | select(.dir_id == 201) | .songs[] | ($G[(.genre|tostring)] // "其他或未知")]
+    | group_by(.) | map({genre: .[0], n: length}) | sort_by(-.n)' "$F"
+
+# 年代分布
+jq '[.playlists[] | select(.dir_id == 201) | .songs[] | ((.release_date // "")[:3] + "0s")]
+    | group_by(.) | map({decade: .[0], n: length}) | sort_by(-.n)' "$F"
+
+# 收藏最多的歌手（合唱的歌拆开，每位歌手各算一次）
+jq '[.playlists[] | select(.dir_id == 201) | .songs[].singers[].name]
+    | group_by(.) | map({artist: .[0], n: length}) | sort_by(-.n) | .[:10]' "$F"
+
+# 关注了，但所有歌单里一首都没收藏（按 mid 匹配）
+jq '([.playlists[].songs[].singers[].mid] | unique) as $have
+    | [.following_singers[] | select(.mid as $m | $have | index($m) | not) | .name]' "$F"
+
+# 「我喜欢」里收藏了 3 首以上，却没关注（按 mid 匹配）
+jq '([.following_singers[].mid]) as $f
+    | [.playlists[] | select(.dir_id == 201) | .songs[].singers[]] | group_by(.mid)
+    | map({artist: .[0].name, mid: .[0].mid, n: length})
+    | map(select(.n >= 3 and (.mid as $m | $f | index($m) | not))) | sort_by(-.n)' "$F"
+```
+
+- 语种分布用第 2 节里的语种统计查询。
+- 自建歌单的名字和歌曲数，本身就说明了用户怎么给音乐分类，比如「RNB」「RAP」「Chill」。可以拿来印证统计结果。
+- 流派代码为 0 的歌比较多时，抽样用 `qqmusic song --stdin --detail` 补查文字流派。
+- 结论用几句话概括，比如「以欧美 R&B 和说唱为主，偏爱 2020 年代的新歌」，再附上支撑结论的数字。
