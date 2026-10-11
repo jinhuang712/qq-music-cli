@@ -105,3 +105,13 @@ def test_following_with_saved_counts_by_mid(lib, server):
     assert first["liked_songs"] == 2
     assert first["saved_songs"] == 4  # 100_001..100_004, the shared song counted once
     assert all(p["saved_songs"] == 0 for p in people[1:])
+
+
+def test_playlists_carry_tag_names_and_no_desc(lib, server):
+    server.add_playlist("Tagged")
+    pl = lib.resolve_playlist("Tagged")
+    assert pl["tags"] == ["R&B", "Chill"]
+    assert "desc" not in pl
+    # unknown ids fall back to the id itself
+    server.by_name("Tagged")["tags"].append({"id": 99, "name": "?"})
+    assert lib.playlists(refresh=True)[-1]["tags"] == ["R&B", "Chill", "99"]

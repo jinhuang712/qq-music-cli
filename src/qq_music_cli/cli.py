@@ -224,6 +224,8 @@ def show(
     lib = _library()
     pl = lib.resolve_playlist(playlist, own=False)
     result = lib.playlist_songs(pl["tid"], offset=offset, limit=limit)
+    if pl.get("dir_id"):  # own playlist: the song read leaves tags empty, the list read has them
+        result["playlist"]["tags"] = pl.get("tags", [])
     result["songs"] = [project(s, _fields(fields)) for s in result["songs"]]
     emit(result)
 

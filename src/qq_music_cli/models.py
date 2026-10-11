@@ -47,9 +47,15 @@ def song(raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def playlist(raw: dict[str, Any]) -> dict[str, Any]:
-    """Own playlist from `PlaylistBaseRead.GetPlaylistByUin`."""
+def playlist(raw: dict[str, Any], tag_names: dict[int, str] | None = None) -> dict[str, Any]:
+    """Own playlist from `PlaylistBaseRead.GetPlaylistByUin`.
+
+    That API always leaves `desc` empty (checked live), so no description here; `qqmusic show` has it.
+    Tags come only as ids (`strTagIdList`); `tag_names` maps them to names from `getPlaylistTag`.
+    """
     dir_id = raw.get("dirId")
+    ids = [int(x) for x in str(raw.get("strTagIdList") or "").split(",") if x.strip().isdigit()]
+    names = tag_names or {}
     return {
         "dir_id": dir_id,
         "tid": raw.get("tid"),
@@ -57,7 +63,7 @@ def playlist(raw: dict[str, Any]) -> dict[str, Any]:
         "song_count": raw.get("songNum"),
         "liked": dir_id == LIKED_DIR_ID,
         "public": raw.get("dirShow") == 1,
-        "desc": raw.get("desc") or None,
+        "tags": [names.get(i, str(i)) for i in ids],
         "created_at": raw.get("createTime"),
         "updated_at": raw.get("updateTime"),
     }

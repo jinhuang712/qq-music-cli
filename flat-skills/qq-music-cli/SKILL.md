@@ -32,7 +32,7 @@ command -v qqmusic && qqmusic --compact status
 
 | 要做的事                                                                                | 命令                                                                                                                  |
 | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 列出我的歌单（「我喜欢」的 `dir_id` 是 201）                                            | `qqmusic playlists`                                                                                                   |
+| 列出我的歌单，带歌曲数和标签（「我喜欢」的 `dir_id` 是 201）。歌单简介要用 `show` 看    | `qqmusic playlists`                                                                                                   |
 | 看歌单里有哪些歌。歌单可以写名字、`dir_id`、`tid` 或 `liked`，任何公开歌单的 `tid` 也行 | `qqmusic show "RNB" --fields id,type,name,artist,album,duration,release_date`                                         |
 | 看「我喜欢」                                                                            | `qqmusic liked --fields id,type,name,artist`                                                                          |
 | 看收藏的歌单、专辑                                                                      | `qqmusic faved playlists`、`qqmusic faved albums`                                                                     |

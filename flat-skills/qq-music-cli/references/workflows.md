@@ -190,6 +190,10 @@ jq '[.playlists[] | select(.dir_id == 201) | .songs[] | ((.release_date // "")[:
 jq '[.playlists[] | select(.dir_id == 201) | .songs[].singers[].name]
     | group_by(.) | map({artist: .[0], n: length}) | sort_by(-.n) | .[:10]' "$F"
 
+# 用户给自建歌单打的标签，按歌单里的歌曲数加权
+qqmusic playlists | jq '[.[] | .song_count as $n | .tags[] | {tag: ., n: $n}]
+    | group_by(.tag) | map({tag: .[0].tag, playlists: length, songs: (map(.n) | add)}) | sort_by(-.songs)'
+
 # 更省事的做法：qqmusic following --saved 直接给出每位关注歌手的 liked_songs / saved_songs
 
 # 关注了，但所有歌单里一首都没收藏（按 mid 匹配）
@@ -204,6 +208,6 @@ jq '([.following_singers[].mid]) as $f
 ```
 
 - 语种分布用第 2 节里的语种统计查询。
-- 自建歌单的名字和歌曲数，本身就说明了用户怎么给音乐分类，比如「RNB」「RAP」「Chill」。可以拿来印证统计结果。
+- 自建歌单的名字、标签和歌曲数，本身就说明了用户怎么给音乐分类，比如名字「RNB」「RAP」「Chill」，标签「R&B」「嘻哈」「安静」。标签是用户自己选的，比流派代码更接近用户的说法，可以拿来印证统计结果。有的歌单没打标签，结论不能只靠标签。
 - 流派代码为 0 的歌比较多时，抽样用 `qqmusic song --stdin --detail` 补查文字流派。
 - 结论用几句话概括，比如「以欧美 R&B 和说唱为主，偏爱 2020 年代的新歌」，再附上支撑结论的数字。

@@ -176,6 +176,8 @@ class FakeQQMusic:
                     "dirName": pl["dirName"],
                     "songNum": len(pl["songs"]),
                     "dirShow": 1,
+                    "desc": "",
+                    "strTagIdList": ",".join(str(t["id"]) for t in pl["tags"]),
                 }
                 for pl in self.playlists
             ]
@@ -268,6 +270,14 @@ class FakeQQMusic:
 
     def rpc_GetFollowUserList(self, p):
         return self._follow_page(self.followed_users, p)
+
+    def rpc_getPlaylistTag(self, p):
+        return {
+            "categories": [
+                {"categoryGroupName": "流派", "items": [{"categoryId": 11, "categoryName": "R&B"}]},
+                {"categoryGroupName": "心情", "items": [{"categoryId": 22, "categoryName": "Chill"}]},
+            ]
+        }
 
     def rpc_CgiGetPlaylistFavInfo(self, p):
         return {"v_list": [], "hasmore": 0}

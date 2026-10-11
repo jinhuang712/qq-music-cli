@@ -62,10 +62,23 @@ class Library:
 
     def playlists(self, *, refresh: bool = False) -> list[dict[str, Any]]:
         if self._playlists is None or refresh:
-            data = self.client.rpc(
-                "music.musicasset.PlaylistBaseRead", "GetPlaylistByUin", {"uin": self.uin, "bWithoutStatus": False}
+            data, tags = self.client.rpc_many(
+                [
+                    (
+                        "music.musicasset.PlaylistBaseRead",
+                        "GetPlaylistByUin",
+                        {"uin": self.uin, "bWithoutStatus": False},
+                    ),
+                    ("music.musicasset.PlaylistTag", "getPlaylistTag", {}),
+                ]
             )
-            self._playlists = [models.playlist(p) for p in data.get("v_playlist") or []]
+            names = {
+                int(item["categoryId"]): item.get("categoryName") or str(item["categoryId"])
+                for group in tags.get("categories") or []
+                for item in group.get("items") or []
+                if str(item.get("categoryId", "")).isdigit()
+            }
+            self._playlists = [models.playlist(p, names) for p in data.get("v_playlist") or []]
         return self._playlists
 
     def resolve_playlist(self, ref: str, *, own: bool = True) -> dict[str, Any]:
