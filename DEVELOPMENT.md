@@ -78,5 +78,11 @@ codex plugin add qq-music@qq-music
 
    测试会检查它们是否一致。Claude Code 和 Codex 按版本号缓存插件，版本号不变，用户重跑安装脚本也拿不到新内容。
 
+   版本号的格式是 `X.Y.Z`，按改动大小决定改哪一位：
+
+   - 小的迭代改 Z，比如修正、改文案、小调整：0.5.0 → 0.5.1。
+   - 大的迭代改 Y，Z 归零，比如新命令、新功能：0.5.1 → 0.6.0。
+   - X 保持 0，不改。
+
 2. **检查**：运行测试和 `claude plugin validate . --strict`。
 3. **推送**：推送到 `master`。GitHub Pages 直接发布 `docs/` 目录，推送后自动更新。
