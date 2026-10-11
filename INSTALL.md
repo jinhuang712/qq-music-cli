@@ -4,31 +4,31 @@
 
 每个 agent 一个脚本，按你用的选，可以选多个。
 
-**Claude Code**，装好后 skill 显示为 `qq-music:cli`：
+**Claude Code**，装好后用 `/qq-music:cli` 加载：
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-claude.sh | bash
 ```
 
-**Codex**，装好后 skill 显示为 `qq-music:cli`：
+**Codex**，装好后用 `$qq-music:cli` 加载：
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-codex.sh | bash
 ```
 
-**Pi**，装好后 skill 显示为 `qq-music-cli`：
+**Pi**，装好后用 `/skill:qq-music-cli` 加载：
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-pi.sh | bash
 ```
 
-**OpenCode**，装好后 skill 显示为 `qq-music-cli`：
+**OpenCode**，装好后对 agent 说「加载 qq-music-cli skill」：
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jinhuang712/qq-music-cli/master/install-opencode.sh | bash
 ```
 
-Claude Code 和 Codex 会在 skill 名前加上插件名，Pi 和 OpenCode 不会，所以两边显示的名字不一样，具体见 [HOW-IT-WORKS.md](HOW-IT-WORKS.md)。
+skill 只在你手动加载时才会用上，agent 不会自己加载它。Claude Code 和 Codex 会在 skill 名前加上插件名，Pi 和 OpenCode 不会，所以几个 agent 里的名字不一样。各 agent 的设置见 [HOW-IT-WORKS.md](HOW-IT-WORKS.md)。
 
 ## 关于这些脚本
 

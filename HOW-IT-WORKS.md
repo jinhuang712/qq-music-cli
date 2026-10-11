@@ -12,20 +12,27 @@ y.qq.com 网页自己现在用的是另一个加密并签名的接口。但截�
 
 以下接口都在真实账号上验证过：
 
-| 能力             | module / method                                                                                                      |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 列出歌单         | `music.musicasset.PlaylistBaseRead` / `GetPlaylistByUin`                                                             |
-| 读歌单           | `music.srfDissInfo.aiDissInfo` / `uniform_get_Dissinfo`                                                              |
-| 建歌单、删歌单   | `music.musicasset.PlaylistBaseWrite` / `AddPlaylist`、`DelPlaylist`                                                  |
-| 歌单标签名       | `music.musicasset.PlaylistTag` / `getPlaylistTag`                                                                    |
-| 改名、改简介     | `music.musicasset.PlaylistBaseWrite` / `EditPlaylist`                                                                |
-| 加歌、删歌       | `music.musicasset.PlaylistDetailWrite` / `AddSonglist`、`DelSonglist`                                                |
-| 歌曲元数据       | `music.trackInfo.UniformRuleCtrl` / `CgiGetTrackInfo`、`music.pf_song_detail_svr` / `get_song_detail_yqq`            |
-| 收藏的歌单和专辑 | `music.musicasset.PlaylistFavRead`、`music.musicasset.AlbumFavRead`                                                  |
-| 专辑信息和曲目   | `music.musichallAlbum.AlbumInfoServer` / `GetAlbumDetail`、`music.musichallAlbum.AlbumSongList` / `GetAlbumSongList` |
-| 关注的歌手、用户 | `music.concern.RelationList` / `GetFollowSingerList`、`GetFollowUserList`                                            |
-| 搜索             | `music.search.SearchCgiService` / `DoSearchForQQMusicDesktop`                                                        |
-| 歌词             | `c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg`                                                                  |
+| 能力                         | module / method                                                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 列出歌单                     | `music.musicasset.PlaylistBaseRead` / `GetPlaylistByUin`                                                                                 |
+| 读歌单                       | `music.srfDissInfo.aiDissInfo` / `uniform_get_Dissinfo`                                                                                  |
+| 建歌单、删歌单               | `music.musicasset.PlaylistBaseWrite` / `AddPlaylist`、`DelPlaylist`                                                                      |
+| 歌单标签名                   | `music.musicasset.PlaylistTag` / `getPlaylistTag`                                                                                        |
+| 改名、改简介、设私密、换封面 | `music.musicasset.PlaylistBaseWrite` / `EditPlaylist`（`dirShow` 1 公开、2 私密），封面先用 `music.filesys.FileSystem` / `PutImage` 上传 |
+| 收藏、取消收藏歌单           | `music.musicasset.PlaylistFavWrite` / `FavPlaylist`、`CancelFavPlaylist`，回读用 `music.musicasset.PlaylistFavRead` / `IsPlaylistFan`    |
+| 收藏、取消收藏专辑           | `music.musicasset.AlbumFavWrite` / `FavAlbum`、`CancelFavAlbum`，回读用 `music.musicasset.AlbumFavRead` / `IsAlbumFan`                   |
+| 加歌、删歌                   | `music.musicasset.PlaylistDetailWrite` / `AddSonglist`、`DelSonglist`                                                                    |
+| 歌曲元数据                   | `music.trackInfo.UniformRuleCtrl` / `CgiGetTrackInfo`、`music.pf_song_detail_svr` / `get_song_detail_yqq`                                |
+| 收藏的歌单和专辑             | `music.musicasset.PlaylistFavRead`、`music.musicasset.AlbumFavRead`                                                                      |
+| 专辑信息和曲目               | `music.musichallAlbum.AlbumInfoServer` / `GetAlbumDetail`、`music.musichallAlbum.AlbumSongList` / `GetAlbumSongList`                     |
+| 关注的歌手、用户             | `music.concern.RelationList` / `GetFollowSingerList`、`GetFollowUserList`                                                                |
+| 搜索                         | `music.search.SearchCgiService` / `DoSearchForQQMusicDesktop`                                                                            |
+| 歌词                         | `c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg`                                                                                      |
+
+网页上还有两件事，CLI 没有做：
+
+- 关注、取消关注歌手：`Concern.ConcernSystemServer` / `cgi_concern_user_v2`。参数和网页一致，但走普通请求时返回 10018。网页发的是签名加密过的请求，CLI 不实现这种请求。
+- 调整歌单里歌曲的顺序：网页上没有这个功能，也找不到对应的接口。
 
 ## 登录
 
@@ -43,10 +50,22 @@ y.qq.com 网页自己现在用的是另一个加密并签名的接口。但截�
 | Claude Code、Codex | `skills/cli/`（源头）                                               | `qq-music:cli` |
 | Pi、OpenCode       | `flat-skills/qq-music-cli/`（由 `scripts/sync_flat_skill.py` 生成） | `qq-music-cli` |
 
-skill 由三份文件组成：
+skill 只在用户手动加载时才会用上，模型不会自己加载它。四个 agent 的设置各不相同：
+
+| 渠道        | 关掉自动加载                                                                   | 用户怎么加载                                                                                                           |
+| ----------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Claude Code | `SKILL.md` 里的 `disable-model-invocation: true`                               | `/qq-music:cli`                                                                                                        |
+| Codex       | `skills/cli/agents/openai.yaml` 里的 `policy.allow_implicit_invocation: false` | `$qq-music:cli`                                                                                                        |
+| Pi          | 同样是 `disable-model-invocation: true`，生成副本时保留                        | `/skill:qq-music-cli`                                                                                                  |
+| OpenCode    | 副本 `metadata` 里的 `opencode/autoinvoke: "false"`                            | 对 agent 说「加载 qq-music-cli skill」。副本里也写了 `opencode/slash: "true"`，但 OpenCode 2.0.20 还不认这个键（实测） |
+
+只加载、不带要求时，skill 会先回一段引导，列出能做的事。
+
+skill 由这几份文件组成：
 
 - `SKILL.md`：安装、登录、命令和安全规则。
 - `references/concepts.md`：QQ 音乐的数据模型，包括 `dir_id` 和 `tid` 的区别、「我喜欢」、同一首歌的不同版本、语种和流派代码，以及各项限制。
+- `agents/openai.yaml`：只给 Codex 用，关掉自动加载。
 - `references/workflows.md`：曲库体检、整理「我喜欢」、根据描述生成歌单、合并、拆分、去重、规则同步、备份、清理等做法。
 
 各渠道的清单文件：

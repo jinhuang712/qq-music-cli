@@ -63,6 +63,7 @@ codex plugin add qq-music@qq-music
 ### 文档和 skill
 
 - 面向人的内容只用中文：README、Pages、仓库描述、各清单里的描述。skill 也用中文。中文要写成母语的样子，不能有翻译腔。
+- skill 只在用户手动加载时使用，不能让模型自己触发。四个渠道的设置不同，见 HOW-IT-WORKS.md 的「插件结构」。改了这部分，要在四个 agent 里各验证一次：不加载时模型看不到它，只加载不带要求时会回引导。
 - skill 只有一份源头，就是 `skills/cli/`。Pi 和 OpenCode 用的副本由 `scripts/sync_flat_skill.py` 生成。各渠道显示 skill 名字的规则不同，打包要按渠道分别处理，见 HOW-IT-WORKS.md 的「插件结构」。
 - 插件的 `displayName` 设为 `QQ Music`，`.claude-plugin/plugin.json` 和 `.claude-plugin/marketplace.json` 各一处。不设的话，界面会把 `qq-music` 显示成「Qq Music」。
 
