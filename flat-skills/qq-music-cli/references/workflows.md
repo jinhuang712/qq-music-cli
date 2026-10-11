@@ -84,7 +84,7 @@ jq '{"0":"国语","1":"粤语","3":"日语","4":"韩语","5":"英语","9":"纯�
    - 描述里提到节奏（跑步、助眠、慢歌）时，加上 `bpm`：`--fields +release_date,bpm`。很多歌没有 `bpm`，没有的不要直接排除，按歌名和歌手判断。
 2. 还可以从用户自己的口味里找歌：「我喜欢」或相关歌单里符合描述的歌。把用户熟悉的歌和新歌混在一起，通常比只用搜索结果效果好。
 3. 筛一遍候选：
-   - 去掉重复的版本。除非用户想要现场版，否则留录音室版。
+   - 去掉重复的版本。除非用户想要现场版，否则留录音室版。拿不准时，比较 `comment_count`，原版通常评论多得多。
    - 去掉伴奏和 K 歌版。
    - 数量控制在用户要求的范围内。
 4. 把歌单列给用户看（歌名、歌手、专辑），让用户划掉不想要的。
@@ -196,6 +196,11 @@ jq '[.playlists[] | select(.dir_id == 201) | .songs[] | ((.release_date // "")[:
 # 收藏最多的歌手（合唱的歌拆开，每位歌手各算一次）
 jq '[.playlists[] | select(.dir_id == 201) | .songs[].singers[].name]
     | group_by(.) | map({artist: .[0], n: length}) | sort_by(-.n) | .[:10]' "$F"
+
+# 一个歌单里哪些歌最热、哪些最冷门（评论数，每 10 首歌多一次请求）
+# 个别歌读不到评论（错误码 20022），它们的 comment_count 是 null，先过滤掉
+qqmusic show "RNB" --fields name,artist,comment_count \
+  | jq '[.songs[] | select(.comment_count != null)] | sort_by(-.comment_count) | .[:10]'
 
 # 用户给自建歌单打的标签，按歌单里的歌曲数加权
 qqmusic playlists | jq '[.[] | .song_count as $n | .tags[] | {tag: ., n: $n}]

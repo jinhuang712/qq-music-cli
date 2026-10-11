@@ -153,8 +153,13 @@ class Client:
         comm: dict[str, Any] | None = None,
         idempotent: bool = True,
         risk_retries: int = 2,
+        skip_failed: bool = False,
     ) -> list[dict[str, Any]]:
-        """`comm` replaces the web comm entirely; `comm_extra` is merged into it."""
+        """`comm` replaces the web comm entirely; `comm_extra` is merged into it.
+
+        `skip_failed` turns a plain API error in one slot into `{}` for that slot, so one bad item does
+        not sink a batch. Login and risk-control errors still raise.
+        """
         payload: dict[str, Any] = {"comm": dict(comm) if comm is not None else self.comm(comm_extra)}
         for i, call in enumerate(calls):
             payload[f"req_{i}"] = dict(zip(("module", "method", "param"), call, strict=True))
@@ -165,7 +170,7 @@ class Client:
                 "POST", RPC_URL, idempotent=idempotent, content=body, headers={"Content-Type": "application/json"}
             )
             try:
-                return self._unpack(self._json(response), calls)
+                return self._unpack(self._json(response), calls, skip_failed=skip_failed)
             except RiskControlError:
                 if attempt + 1 < tries:
                     self._sleep(3 * 3**attempt + random.random())
@@ -176,7 +181,9 @@ class Client:
     def rpc(self, module: str, method: str, param: dict[str, Any] | None = None, **kwargs: Any) -> dict[str, Any]:
         return self.rpc_many([(module, method, param or {})], **kwargs)[0]
 
-    def _unpack(self, resp: dict[str, Any], calls: Sequence[Call]) -> list[dict[str, Any]]:
+    def _unpack(
+        self, resp: dict[str, Any], calls: Sequence[Call], *, skip_failed: bool = False
+    ) -> list[dict[str, Any]]:
         outer = resp.get("code", 0)
         if outer != 0:
             raise self.error_for(int(outer), None, None, resp)
@@ -187,7 +194,11 @@ class Client:
                 raise ApiError(f"response has no slot for {module}.{method}", data=resp)
             code = item.get("code", 0)
             if code != 0:
-                raise self.error_for(int(code), module, method, item.get("data"))
+                error = self.error_for(int(code), module, method, item.get("data"))
+                if skip_failed and type(error) is ApiError:
+                    results.append({})
+                    continue
+                raise error
             data = item.get("data")
             if data is None:
                 data = {}

@@ -79,7 +79,7 @@ def test_show_default_plus_and_all(runner, patched_lib, server):
     assert list(plus[1]) == [*models.SONG_DEFAULT, "bpm", "qualities"]
     assert plus[1]["bpm"] == 90 and plus[1]["qualities"] == ["320k", "flac"]
     every = out_json(runner.invoke(app, ["show", "Mix", "--fields", "all"]))["songs"]
-    assert list(every[0]) == list(models.SONG_FIELDS)
+    assert list(every[0]) == [*models.SONG_FIELDS, *models.SONG_COUNT_FIELDS]  # `all` includes the costly ones
 
 
 def test_unknown_field_is_usage_error(runner, patched_lib, server):

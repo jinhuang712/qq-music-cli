@@ -58,6 +58,21 @@ def _fields_option(default: str = "") -> Any:
     return typer.Option(None, help=f"{FIELDS_HELP} {default}".strip())
 
 
+def _song_fields(
+    spec: str | None, default: tuple[str, ...] = models.SONG_DEFAULT, extra: tuple[str, ...] = ()
+) -> list[str]:
+    return select_fields(spec, default, (*models.SONG_FIELDS, *extra, *models.SONG_COUNT_FIELDS))
+
+
+def _with_comment_counts(lib: Library, songs: list[dict[str, Any]], keep: list[str]) -> list[dict[str, Any]]:
+    """Fill `comment_count` only when asked for: it costs one request per 10 songs."""
+    if "comment_count" in keep and songs:
+        counts = lib.comment_counts("song", [s["id"] for s in songs])
+        for s in songs:
+            s["comment_count"] = counts.get(str(s["id"]))
+    return songs
+
+
 def _stdin_text(use_stdin: bool) -> str | None:
     return sys.stdin.read() if use_stdin else None
 
@@ -236,11 +251,11 @@ def show(
     fields: str | None = _fields_option("Applies to the songs, e.g. +release_date,bpm."),
 ) -> None:
     """List the songs in a playlist, after the playlist's own details."""
-    keep = select_fields(fields, models.SONG_DEFAULT, models.SONG_FIELDS)
+    keep = _song_fields(fields)
     lib = _library()
     pl = lib.resolve_playlist(playlist, own=False)
     result = lib.playlist_songs(pl["tid"], offset=offset, limit=limit)
-    result["songs"] = [project(s, keep) for s in result["songs"]]
+    result["songs"] = [project(s, keep) for s in _with_comment_counts(lib, result["songs"], keep)]
     emit(result)
 
 
@@ -308,13 +323,13 @@ def song(
     if not refs:
         raise UsageError("give at least one song")
     default = (*models.SONG_DEFAULT, *(models.SONG_DETAIL_DEFAULT if detail else ()))
-    keep = select_fields(fields, default, (*models.SONG_FIELDS, *models.SONG_DETAIL_FIELDS))
+    keep = _song_fields(fields, default, models.SONG_DETAIL_FIELDS)
     lib = _library()
     if detail or set(keep) & set(models.SONG_DETAIL_FIELDS):
         result = lib.song_details(refs)
     else:
         result = lib.tracks(refs)
-    emit([project(s, keep) for s in result])
+    emit([project(s, keep) for s in _with_comment_counts(lib, result, keep)])
 
 
 @app.command()
@@ -326,11 +341,12 @@ def search(
     fields: str | None = _fields_option("Song results have the same fields as `show`."),
 ) -> None:
     """Search the QQ Music catalogue."""
-    if type_ in ("song", "lyric"):
-        keep: list[str] | None = select_fields(fields, models.SONG_DEFAULT, models.SONG_FIELDS)
-    else:
-        keep = _fields(fields)
-    result = _library(required=False).search(query, kind=type_, page=page, limit=limit)
+    songs = type_ in ("song", "lyric")
+    keep: list[str] | None = _song_fields(fields) if songs else _fields(fields)
+    lib = _library(required=False)
+    result = lib.search(query, kind=type_, page=page, limit=limit)
+    if songs and keep:
+        result["results"] = _with_comment_counts(lib, result["results"], keep)
     result["results"] = [project(r, keep) for r in result["results"]]
     emit(result)
 
@@ -344,9 +360,26 @@ def album(
     """Show an album (description, type, label, awards) and its songs."""
     if not models.MID_RE.match(album_mid.strip()):
         raise UsageError(f"not an album mid: {album_mid!r}")
-    keep = select_fields(fields, models.SONG_DEFAULT, models.SONG_FIELDS)
-    result = _library(required=False).album(album_mid.strip(), limit=limit)
-    result["songs"] = [project(s, keep) for s in result["songs"]]
+    keep = _song_fields(fields)
+    lib = _library(required=False)
+    result = lib.album(album_mid.strip(), limit=limit)
+    result["songs"] = [project(s, keep) for s in _with_comment_counts(lib, result["songs"], keep)]
+    emit(result)
+
+
+@app.command()
+def comments(
+    kind: str = typer.Argument(..., help="`song`, `album` or `playlist`."),
+    ref: str = typer.Argument(..., help="Song id / id:type / mid, album mid, or playlist name / dir_id / tid."),
+    new: bool = typer.Option(False, "--new", help="Newest comments instead of the hot (热门) ones."),
+    limit: int = typer.Option(20, min=1, max=200, help="Return at most this many comments."),
+    fields: str | None = _fields_option("Comments: content, likes, replies, time by default; also user, id."),
+) -> None:
+    """Read the hot (or newest) comments on a song, album or playlist, with the total comment count."""
+    keep = select_fields(fields, models.COMMENT_DEFAULT, models.COMMENT_FIELDS)
+    kind = kind.rstrip("s")
+    result = _library(required=False).comments(kind, ref, newest=new, limit=limit)
+    result["comments"] = [project(c, keep) for c in result["comments"]]
     emit(result)
 
 

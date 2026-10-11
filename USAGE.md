@@ -2,7 +2,7 @@
 
 每条命令在 stdout 只输出一个 JSON；进度和报错以 JSON 行的形式写到 stderr。想让输出压成一行，就在子命令前加 `--compact`，例如 `qqmusic --compact playlists`。
 
-列表类的命令默认只输出常用字段。`--fields id,type` 只要这几个字段，`--fields +bpm` 在默认字段上追加，`--fields all` 输出全部。字段名写错时，报错会列出所有可选字段。
+列表类的命令默认只输出常用字段。`--fields id,type` 只要这几个字段，`--fields +bpm` 在默认字段上追加，`--fields all` 输出全部，包括要多发请求的字段。歌曲的 `comment_count`（评论总数）每 10 首歌多一次请求，只在点名时才查。字段名写错时，报错会列出所有可选字段。
 
 ## 登录
 
@@ -30,6 +30,7 @@ qqmusic logout             # 删除保存的凭证
 | `qqmusic following --saved`                                                  | 每位关注的歌手在「我喜欢」和所有歌单里各收藏了几首，按歌手 mid 统计                                          |
 | `qqmusic song <歌曲...> [--detail]`                                          | 歌曲信息。加 `--detail` 返回文字版的流派、语种、唱片公司；简介要加 `--fields +intro`                         |
 | `qqmusic album <专辑 mid>`                                                   | 专辑信息（简介、类型、唱片公司、获奖）和全部曲目                                                             |
+| `qqmusic comments song\|album\|playlist <对象> [--new] [--limit N]`          | 热门评论（加 `--new` 是最新评论）和评论总数                                                                  |
 | `qqmusic search <关键词> [--type <类型>]`                                    | 搜索，类型可选 song、album、playlist、singer、mv、lyric、user                                                |
 | `qqmusic lyrics <歌曲>`                                                      | 歌词（LRC 格式）和翻译                                                                                       |
 | `qqmusic export`                                                             | 把整个曲库导出成一个 JSON 文件                                                                               |

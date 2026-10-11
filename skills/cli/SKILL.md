@@ -25,6 +25,7 @@ QQ 音乐 CLI 工具已加载，你想要做什么？你可以让我：
 
 - 看看我有几个歌单，每个歌单有多少首歌
 - 查一首歌的专辑、发行时间和曲风
+- 看看一首歌或一张专辑的热评
 - 把一首歌加进歌单，或者加红心
 - 给歌单改名、设成私密、换封面
 
@@ -70,6 +71,8 @@ command -v qqmusic && qqmusic --compact status
 | 查歌曲信息                                                                                         | `qqmusic song 97773 0039MnYb0qxYhV`                                                                                   |
 | 查文字版的流派、语种、唱片公司，或者歌曲简介                                                       | `qqmusic song <歌曲> --detail`、`qqmusic song <歌曲> --fields +intro`（每首歌多一次请求）                             |
 | 看专辑：简介、类型、唱片公司、获奖和曲目。专辑 mid 取自歌曲的 `album.mid` 或 `search --type album` | `qqmusic album 000MkMni19ClKG`                                                                                        |
+| 看歌曲、专辑或歌单的热门评论和评论总数，加 `--new` 看最新评论                                      | `qqmusic comments song 0039MnYb0qxYhV`、`qqmusic comments album 000MkMni19ClKG --new`                                 |
+| 看歌有多热：每首歌的评论总数（每 10 首歌多一次请求）                                               | 任何列出歌曲的命令加 `--fields +comment_count`                                                                        |
 | 搜索                                                                                               | `qqmusic search "晴天 周杰伦" --type song --limit 10`（`--type` 可选 song、singer、album、playlist、mv、lyric、user） |
 | 查歌词                                                                                             | `qqmusic lyrics 0039MnYb0qxYhV`                                                                                       |
 | 导出整个曲库                                                                                       | `qqmusic export`，输出 `{"path": ...}`                                                                                |
@@ -103,7 +106,7 @@ qqmusic show RNB --fields id,type | qqmusic add "RNB精选" --stdin --dry-run
 
 - `--fields id,type`：只要这几个字段
 - `--fields +bpm,release_date`：默认字段再加上这几个
-- `--fields all`：全部字段
+- `--fields all`：全部字段，包括要多发请求的字段（比如 `comment_count`）
 
 写错字段名时，命令以退出码 2 结束，报错里会列出所有可选字段。每种字段的含义见 [references/concepts.md](references/concepts.md)。`show` 的 `playlist` 和 `album` 的 `album` 只是一个对象，总是完整输出，包括简介。
 

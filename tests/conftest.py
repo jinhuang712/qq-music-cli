@@ -140,6 +140,8 @@ class FakeQQMusic:
         }
         self.albums = {"ALBUM000000001": [100_000 + i for i in range(60)]}
         self.faved_album_mids: set[str] = set()
+        self.hot_comments, self.new_comments = 12, 45
+        self.closed_comments: set[str] = set()  # BizIds whose comments the server refuses (code 20022)
         self.uploads: list[dict[str, Any]] = []
 
     # -- state helpers
@@ -360,6 +362,41 @@ class FakeQQMusic:
     def rpc_CancelFavAlbum(self, p):
         self.faved_album_mids.difference_update(p["v_albumMid"])
         return {"result": 0, "v_failedAlbumMid": []}
+
+    def _comment_page(self, p, hot: bool):
+        assert p["PageSize"] <= 20, "the server refuses pages above 20"
+        pool = [
+            {
+                "CmId": f"c{i}",
+                "Content": f"{'hot' if hot else 'new'} comment {i}",
+                "PraiseNum": 100 - i,
+                "ReplyCnt": i % 3,
+                "PubTime": 1_700_000_000 - i * 60,
+                "Nick": f"user{i}",
+                "SeqNo": f"s{i}",
+            }
+            for i in range(self.hot_comments if hot else self.new_comments)
+        ]
+        size = max(p["PageSize"], 5)  # the server sends at least 5
+        page = pool[p["PageNum"] * size : (p["PageNum"] + 1) * size]
+        total = 1000 + int(p["BizId"]) % 1000  # per item, so tests can tell counts apart
+        return {
+            "TotalCmNum": total,
+            "CommentList": {
+                "Total": len(pool),
+                "HasMore": int((p["PageNum"] + 1) * size < len(pool)),
+                "Comments": page,
+            },
+        }
+
+    def rpc_GetHotCommentList(self, p):
+        assert p["HotType"] == 1
+        if p["BizId"] in self.closed_comments:
+            raise SlotError(20022)
+        return self._comment_page(p, hot=True)
+
+    def rpc_GetNewCommentList(self, p):
+        return self._comment_page(p, hot=False)
 
     def rpc_get_song_detail_yqq(self, p):
         track = next(s for s in self.catalog.values() if s["mid"] == p["song_mid"])

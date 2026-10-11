@@ -36,6 +36,10 @@ FAVED_ALBUM_DEFAULT = ("id", "mid", "name", "artist", "song_count", "release_dat
 FAVED_ALBUM_FIELDS = (*FAVED_ALBUM_DEFAULT, "cover")
 FOLLOWED_DEFAULT = ("name", "mid", "euin", "fans")
 FOLLOWED_FIELDS = (*FOLLOWED_DEFAULT, "avatar")
+# One comment-list call per song (10 songs per request), so any song list offers it only on request.
+SONG_COUNT_FIELDS = ("comment_count",)
+COMMENT_DEFAULT = ("content", "likes", "replies", "time")
+COMMENT_FIELDS = (*COMMENT_DEFAULT, "user", "id")
 
 
 def _singers(raw: Any) -> list[dict[str, Any]]:
@@ -156,6 +160,18 @@ def followed(raw: dict[str, Any]) -> dict[str, Any]:
         "euin": raw.get("EncUin") or None,
         "fans": raw.get("FanNum"),
         "avatar": raw.get("AvatarUrl") or None,
+    }
+
+
+def comment(raw: dict[str, Any]) -> dict[str, Any]:
+    """One comment from `music.globalComment.CommentRead` (hot or newest list)."""
+    return {
+        "content": raw.get("Content") or "",
+        "likes": raw.get("PraiseNum"),
+        "replies": raw.get("ReplyCnt"),
+        "time": raw.get("PubTime"),
+        "user": raw.get("Nick") or None,
+        "id": raw.get("CmId") or None,
     }
 
 

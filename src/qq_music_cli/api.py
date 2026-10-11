@@ -21,6 +21,8 @@ PAGE_SIZE = 500  # songs per uniform_get_Dissinfo page; the server returned 285 
 FOLLOW_PAGE = 100  # largest page size observed to work for GetFollowSingerList
 INFO_BATCH = 10  # playlist info reads per musicu.fcg request; 12 in one request worked live
 ALBUM_PAGE = 50  # songs per GetAlbumSongList call; the web asks for 10
+COMMENT_PAGE = 20  # comments per CommentRead call; 50 is refused with code 10000
+COMMENT_BIZ = {"song": 1, "album": 2, "playlist": 3}  # BizType values from y.qq.com's comment module
 FOLLOW_METHODS = {"singers": "GetFollowSingerList", "users": "GetFollowUserList"}
 # What y.qq.com's playlist editor sends: every editable field at once. Values we do not change are
 # read back first and sent unchanged, so the cover, tags and visibility survive a rename.
@@ -208,13 +210,87 @@ class Library:
         if not (detail.get("basicInfo") or {}).get("albumMid"):
             raise UsageError(f"no album with mid {mid!r}")
         expected = total if limit is None or total is None else min(limit, total)
+        info = models.album(detail, total)
+        info["comment_count"] = self.comment_counts("album", [info["id"]]).get(str(info["id"]))
         return {
-            "album": models.album(detail, total),
+            "album": info,
             "total": total,
             "count": len(songs),
             "complete": expected is None or len(songs) >= expected,
             "songs": songs,
         }
+
+    # -- comments ---------------------------------------------------------------------------
+
+    def comments(self, kind: str, ref: str, *, newest: bool = False, limit: int = 20) -> dict[str, Any]:
+        """Hot (or newest) comments on a song, album or playlist, as y.qq.com's comment box reads them."""
+        target = self._comment_target(kind, ref)
+        out: list[dict[str, Any]] = []
+        total = listed = None
+        page, seq = 0, ""
+        while len(out) < limit:
+            try:
+                data = self.client.rpc("music.globalComment.CommentRead", *_comment_call(target, newest, page, seq))
+            except ApiError as exc:
+                if exc.code == 20022:
+                    raise ApiError(
+                        f"QQ Music would not list comments for this {target['kind']} (code 20022)", code=20022
+                    ) from exc
+                raise
+            total = data.get("TotalCmNum", total)
+            block = data.get("CommentList") or {}
+            listed = block.get("Total", listed)
+            items = block.get("Comments") or []
+            out.extend(models.comment(c) for c in items)
+            if not items or not block.get("HasMore"):
+                break
+            page, seq = page + 1, items[-1].get("SeqNo") or ""
+        out = out[:limit]
+        return {
+            "target": target,
+            "order": "newest" if newest else "hot",
+            "total_comments": total,
+            "listed": listed,
+            "count": len(out),
+            "comments": out,
+        }
+
+    def comment_counts(self, kind: str, ids: Iterable[Any]) -> dict[str, int | None]:
+        """Comment totals (`TotalCmNum`) for songs, albums or playlists by numeric id, a few per request."""
+        out: dict[str, int | None] = {}
+        for chunk in _chunks([str(i) for i in dict.fromkeys(ids)], INFO_BATCH):
+            calls = [
+                ("music.globalComment.CommentRead", *_comment_call({"kind": kind, "id": i}, False, 0, "", size=1))
+                for i in chunk
+            ]
+            # Some songs refuse comment reads (code 20022, also logged out); they count as unknown.
+            for biz_id, data in zip(chunk, self.client.rpc_many(calls, skip_failed=True), strict=True):
+                out[biz_id] = data.get("TotalCmNum")
+        return out
+
+    def _comment_target(self, kind: str, ref: str) -> dict[str, Any]:
+        if kind == "song":
+            s = self.tracks([models.parse_song_ref(ref)])[0]
+            return {"kind": kind, "id": s["id"], "mid": s["mid"], "name": s["name"], "artist": s["artist"]}
+        if kind == "album":
+            if not models.MID_RE.match(ref.strip()):
+                raise UsageError(f"albums are given by their 14-character mid: {ref!r}")
+            info = self._album_detail(ref.strip())
+            return {"kind": kind, "id": info["id"], "mid": info["mid"], "name": info["name"], "artist": info["artist"]}
+        if kind == "playlist":
+            pl = self.resolve_playlist(ref, own=False)
+            name = pl.get("name") or self.playlist_songs(pl["tid"], limit=1)["playlist"].get("name")
+            return {"kind": kind, "id": pl["tid"], "name": name}
+        raise UsageError("kind must be `song`, `album` or `playlist`")
+
+    def _album_detail(self, mid: str) -> dict[str, Any]:
+        try:
+            detail = self.client.rpc("music.musichallAlbum.AlbumInfoServer", "GetAlbumDetail", {"albumMid": mid})
+        except AuthError as exc:
+            if exc.code == 104400:  # this call works logged out; 104400 means "no such album"
+                raise UsageError(f"no album with mid {mid!r}") from exc
+            raise
+        return models.album(detail)
 
     def song_keys(self, tid: int) -> set[tuple[int, int]]:
         result = self.playlist_songs(tid)
@@ -722,6 +798,25 @@ class Library:
 def _chunks(items: list[Any], size: int) -> Iterable[list[Any]]:
     for i in range(0, len(items), size):
         yield items[i : i + size]
+
+
+def _comment_call(
+    target: dict[str, Any], newest: bool, page: int, seq: str, *, size: int = COMMENT_PAGE
+) -> tuple[str, dict[str, Any]]:
+    """Method and params for one comment page, exactly as the web's comment box builds them."""
+    param: dict[str, Any] = {
+        "BizType": COMMENT_BIZ[target["kind"]],
+        "BizId": str(target["id"]),
+        "LastCommentSeqNo": seq,
+        "PageSize": size,
+        "PageNum": page,
+        "PicEnable": 1,
+    }
+    if newest:
+        param.update(FromCommentId="", WithHot=0, LastTotal=0, LastTotalVer="0")
+        return "GetNewCommentList", param
+    param.update(HotType=1, WithAirborne=0)  # HotType 1 = TOP, the default "热门评论" tab
+    return "GetHotCommentList", param
 
 
 def _edit_state(info: dict[str, Any]) -> dict[str, Any]:
