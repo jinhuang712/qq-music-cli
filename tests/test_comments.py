@@ -68,11 +68,12 @@ def test_comments_cli_default_fields(runner, patched_lib, server):
 def test_comment_count_only_when_asked(runner, patched_lib, server):
     server.add_playlist("Mix", IDS[:12])
     plain = out_json(runner.invoke(app, ["show", "Mix"]))
-    assert "comment_count" not in plain["songs"][0] and server.calls_to("GetHotCommentList") == []
+    assert "comment_count" not in plain["songs"][0] and server.calls_to("GetNewCommentList") == []
     counted = out_json(runner.invoke(app, ["show", "Mix", "--fields", "name,comment_count"]))
     assert counted["songs"][0] == {"name": f"Song {IDS[0]}", "comment_count": 1000 + IDS[0] % 1000}
-    calls = server.calls_to("GetHotCommentList")
+    calls = server.calls_to("GetNewCommentList")
     assert len(calls) == 12 and all(c["PageSize"] == 1 for c in calls)
+    assert server.calls_to("GetHotCommentList") == []  # counts never touch the hot list
     song = out_json(runner.invoke(app, ["song", str(IDS[3]), "--fields", "+comment_count"]))
     assert song[0]["comment_count"] == 1000 + IDS[3] % 1000
 
@@ -99,6 +100,13 @@ def test_auth_errors_still_raise_inside_a_batch(lib, server, monkeypatch):
     def expired(p):
         raise SlotError(1000)
 
-    monkeypatch.setattr(server, "rpc_GetHotCommentList", expired)
+    monkeypatch.setattr(server, "rpc_GetNewCommentList", expired)
     with pytest.raises(AuthError):
         lib.comment_counts("song", IDS[:2])
+
+
+def test_counting_then_reading_hot_comments(runner, patched_lib, server):
+    # The sequence an agent used live: count first, then read the hot list.
+    out_json(runner.invoke(app, ["song", str(IDS[0]), "--fields", "+comment_count"]))
+    hot = out_json(runner.invoke(app, ["comments", "song", str(IDS[0])]))
+    assert hot["count"] == 12

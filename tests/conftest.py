@@ -391,11 +391,15 @@ class FakeQQMusic:
 
     def rpc_GetHotCommentList(self, p):
         assert p["HotType"] == 1
+        # The live server caches a tiny hot page and serves it to the next hot read for a while.
+        assert p["PageSize"] >= 5, "a tiny hot-list page pollutes the next hot read"
         if p["BizId"] in self.closed_comments:
             raise SlotError(20022)
         return self._comment_page(p, hot=True)
 
     def rpc_GetNewCommentList(self, p):
+        if p["BizId"] in self.closed_comments:
+            raise SlotError(20022)
         return self._comment_page(p, hot=False)
 
     def rpc_get_song_detail_yqq(self, p):

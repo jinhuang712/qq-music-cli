@@ -256,11 +256,15 @@ class Library:
         }
 
     def comment_counts(self, kind: str, ids: Iterable[Any]) -> dict[str, int | None]:
-        """Comment totals (`TotalCmNum`) for songs, albums or playlists by numeric id, a few per request."""
+        """Comment totals (`TotalCmNum`) for songs, albums or playlists by numeric id, a few per request.
+
+        Read from the newest list: a one-comment page of the *hot* list leaves the server serving a
+        near-empty hot list for that item for about a minute (seen live), which broke `comments` right after.
+        """
         out: dict[str, int | None] = {}
         for chunk in _chunks([str(i) for i in dict.fromkeys(ids)], INFO_BATCH):
             calls = [
-                ("music.globalComment.CommentRead", *_comment_call({"kind": kind, "id": i}, False, 0, "", size=1))
+                ("music.globalComment.CommentRead", *_comment_call({"kind": kind, "id": i}, True, 0, "", size=1))
                 for i in chunk
             ]
             # Some songs refuse comment reads (code 20022, also logged out); they count as unknown.
