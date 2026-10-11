@@ -1,0 +1,20 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "qq-music",
+  "version": "0.1.0",
+  "description": "Teaches coding agents to manage a QQ Music (QQ音乐) library with the qqmusic CLI: playlists, liked songs, metadata, bulk edits with dry-run and undo, plus workflows for organising a library.",
+  "author": {
+    "name": "jinhuang712"
+  },
+  "keywords": [
+    "qq-music",
+    "qqmusic",
+    "playlist",
+    "music",
+    "cli",
+    "skill"
+  ],
+  "homepage": "https://jinhuang712.github.io/qq-music-cli/",
+  "repository": "https://github.com/jinhuang712/qq-music-cli",
+  "license": "MIT"
+}

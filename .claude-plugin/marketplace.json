@@ -1,0 +1,14 @@
+{
+  "name": "qq-music",
+  "owner": {
+    "name": "jinhuang712"
+  },
+  "description": "qqmusic CLI guide for coding agents",
+  "plugins": [
+    {
+      "name": "qq-music",
+      "source": "./",
+      "description": "Teaches coding agents to manage a QQ Music (QQ音乐) library with the qqmusic CLI: playlists, liked songs, metadata, bulk edits with dry-run and undo, plus workflows for organising a library."
+    }
+  ]
+}

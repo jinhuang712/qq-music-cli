@@ -1,0 +1,34 @@
+[project]
+name = "qq-music-cli"
+version = "0.1.0"
+description = "Agent-friendly CLI for managing your own QQ Music library (playlists, liked songs, metadata)"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.28,<1",
+  "keyring>=25,<27",
+  "qrcode>=7.4,<9",
+  "typer>=0.12,<1",
+]
+
+[project.urls]
+Homepage = "https://jinhuang712.github.io/qq-music-cli/"
+Repository = "https://github.com/jinhuang712/qq-music-cli"
+
+[project.scripts]
+qqmusic = "qq_music_cli.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qq_music_cli"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
