@@ -11,6 +11,7 @@
 
 > [!IMPORTANT]
 > **非官方项目。**
+>
 > - 本项目与腾讯、QQ 音乐没有任何关联，也未获其认可。
 > - 它调用的是 y.qq.com 网页端未公开的接口，随时可能变化或失效。
 > - 请只用于你自己的账号，风险自负，并遵守 QQ 音乐的服务条款。
@@ -19,24 +20,24 @@
 
 ## 能做什么
 
-| | |
-|---|---|
-| **读取曲库** | 自建歌单；「我喜欢」，不受网页只显示一页的限制；收藏的歌单和专辑；歌曲元数据，包括专辑、时长、发行日期、语言、流派 |
-| **安全地修改** | 建歌单、删歌单，批量加歌、删歌、加红心。已在歌单里的歌会自动跳过，写完会回读核对，`--dry-run` 可以先预览，`qqmusic undo <run_id>` 可以撤销某次改动 |
-| **曲库级操作** | `qqmusic export` 把整个曲库导出成一个 JSON 文件，方便做体检、去重和分组 |
-| **搜索** | QQ 音乐曲库（歌曲、专辑、歌单、歌手）和歌词 |
-| **为 agent 设计** | 每条命令只输出一个 JSON 文档，退出码固定。附带的 skill 会教 agent 用法、QQ 音乐的业务概念，以及 10 个实测过的工作流 |
+|                   |                                                                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **读取曲库**      | 自建歌单；「我喜欢」，不受网页只显示一页的限制；收藏的歌单和专辑；歌曲元数据，包括专辑、时长、发行日期、语言、流派                                 |
+| **安全地修改**    | 建歌单、删歌单，批量加歌、删歌、加红心。已在歌单里的歌会自动跳过，写完会回读核对，`--dry-run` 可以先预览，`qqmusic undo <run_id>` 可以撤销某次改动 |
+| **曲库级操作**    | `qqmusic export` 把整个曲库导出成一个 JSON 文件，方便做体检、去重和分组                                                                            |
+| **搜索**          | QQ 音乐曲库（歌曲、专辑、歌单、歌手）和歌词                                                                                                        |
+| **为 agent 设计** | 每条命令只输出一个 JSON 文档，退出码固定。附带的 skill 会教 agent 用法、QQ 音乐的业务概念，以及 10 个实测过的工作流                                |
 
 ## 快速开始（配合 agent）
 
 1. **在 agent 里安装插件**，各渠道的安装方式见下表。
 
-   | Agent | 安装 | skill 显示为 |
-   |---|---|---|
-   | Claude Code | `claude plugin marketplace add jinhuang712/qq-music-cli && claude plugin install qq-music@qq-music` | `qq-music:cli` |
-   | Codex | `codex plugin marketplace add jinhuang712/qq-music-cli && codex plugin add qq-music@qq-music` | `qq-music:cli` |
-   | Pi | `pi install git:github.com/jinhuang712/qq-music-cli` | `qq-music-cli` |
-   | OpenCode | `git clone https://github.com/jinhuang712/qq-music-cli ~/.local/share/qq-music-cli-src && ln -s ~/.local/share/qq-music-cli-src/flat-skills/qq-music-cli ~/.config/opencode/skills/qq-music-cli` | `qq-music-cli` |
+   | Agent       | 安装                                                                                                                                                                                             | skill 显示为   |
+   | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- |
+   | Claude Code | `claude plugin marketplace add jinhuang712/qq-music-cli && claude plugin install qq-music@qq-music`                                                                                              | `qq-music:cli` |
+   | Codex       | `codex plugin marketplace add jinhuang712/qq-music-cli && codex plugin add qq-music@qq-music`                                                                                                    | `qq-music:cli` |
+   | Pi          | `pi install git:github.com/jinhuang712/qq-music-cli`                                                                                                                                             | `qq-music-cli` |
+   | OpenCode    | `git clone https://github.com/jinhuang712/qq-music-cli ~/.local/share/qq-music-cli-src && ln -s ~/.local/share/qq-music-cli-src/flat-skills/qq-music-cli ~/.config/opencode/skills/qq-music-cli` | `qq-music-cli` |
 
 2. **直接对 agent 说**，比如「把我喜欢的歌按语言整理成歌单」。
    - 如果需要，agent 会自己安装 CLI。
@@ -53,26 +54,27 @@ qqmusic login --wechat     # 用 QQ 扫码则运行 qqmusic login
 qqmusic status
 ```
 
-| 命令 | 作用 |
-|---|---|
-| `qqmusic playlists` | 列出自建歌单（「我喜欢」的 `dir_id` 是 201） |
-| `qqmusic show <歌单> [--fields id,name,artist] [--limit N]` | 列出歌单里的歌，`<歌单>` 可以是名字、`dir_id`、`tid` 或 `liked` |
-| `qqmusic liked` | 列出「我喜欢」 |
-| `qqmusic faved playlists\|albums` | 列出收藏的歌单或专辑 |
-| `qqmusic song <歌...> [--detail]` | 歌曲元数据。加 `--detail` 返回文字版的流派、语言、唱片公司 |
-| `qqmusic search <关键词> [--type song\|album\|playlist\|singer\|mv\|lyric\|user]` | 搜索 |
-| `qqmusic lyrics <歌>` | 歌词（LRC 格式）和翻译 |
-| `qqmusic export` | 把整个曲库导出成一个 JSON 文件 |
-| `qqmusic create <名字>` | 新建歌单。同名歌单已存在时，直接返回已有的那个 |
-| `qqmusic add <歌单> <歌...> [--stdin]` | 加歌。已在歌单里的会跳过，每批 20 首，写完回读核对 |
-| `qqmusic remove <歌单> <歌...> [--stdin]` | 删歌 |
-| `qqmusic like` / `qqmusic unlike <歌...>` | 加红心、取消红心 |
-| `qqmusic delete <歌单> --yes` | 删除歌单。删除前把歌曲列表存进 run 日志，undo 时能重建 |
-| `qqmusic runs` / `qqmusic undo <run_id>` | 查看写操作记录，或撤销某次写操作 |
-| `qqmusic raw <module> <method> --param '{}'` | 直接调用任意 `musicu.fcg` 接口，用于探索 |
-| `qqmusic report --period d\|w\|m` | 听歌报告，走腾讯官方 skill 接口，需要 `QQMUSIC_API_KEY` |
+| 命令                                                                              | 作用                                                            |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `qqmusic playlists`                                                               | 列出自建歌单（「我喜欢」的 `dir_id` 是 201）                    |
+| `qqmusic show <歌单> [--fields id,name,artist] [--limit N]`                       | 列出歌单里的歌，`<歌单>` 可以是名字、`dir_id`、`tid` 或 `liked` |
+| `qqmusic liked`                                                                   | 列出「我喜欢」                                                  |
+| `qqmusic faved playlists\|albums`                                                 | 列出收藏的歌单或专辑                                            |
+| `qqmusic song <歌...> [--detail]`                                                 | 歌曲元数据。加 `--detail` 返回文字版的流派、语言、唱片公司      |
+| `qqmusic search <关键词> [--type song\|album\|playlist\|singer\|mv\|lyric\|user]` | 搜索                                                            |
+| `qqmusic lyrics <歌>`                                                             | 歌词（LRC 格式）和翻译                                          |
+| `qqmusic export`                                                                  | 把整个曲库导出成一个 JSON 文件                                  |
+| `qqmusic create <名字>`                                                           | 新建歌单。同名歌单已存在时，直接返回已有的那个                  |
+| `qqmusic add <歌单> <歌...> [--stdin]`                                            | 加歌。已在歌单里的会跳过，每批 20 首，写完回读核对              |
+| `qqmusic remove <歌单> <歌...> [--stdin]`                                         | 删歌                                                            |
+| `qqmusic like` / `qqmusic unlike <歌...>`                                         | 加红心、取消红心                                                |
+| `qqmusic delete <歌单> --yes`                                                     | 删除歌单。删除前把歌曲列表存进 run 日志，undo 时能重建          |
+| `qqmusic runs` / `qqmusic undo <run_id>`                                          | 查看写操作记录，或撤销某次写操作                                |
+| `qqmusic raw <module> <method> --param '{}'`                                      | 直接调用任意 `musicu.fcg` 接口，用于探索                        |
+| `qqmusic report --period d\|w\|m`                                                 | 听歌报告，走腾讯官方 skill 接口，需要 `QQMUSIC_API_KEY`         |
 
 **歌曲引用**支持这几种写法：
+
 - 数字 id，例如 `97773`
 - `id:type`，例如 `97773:0`
 - 14 位 mid，例如 `0039MnYb0qxYhV`
@@ -86,12 +88,13 @@ qqmusic status
 
 插件的全部内容只有一份 Agent Skill。Claude Code 和 Codex 会给插件里的 skill 加命名空间，Pi 和 OpenCode 不会，所以按渠道分两种打包：
 
-| 渠道 | 目录 | 名字 |
-|---|---|---|
-| Claude Code、Codex | `skills/cli/`（源头） | `qq-music:cli` |
-| Pi、OpenCode | `flat-skills/qq-music-cli/`（由 `scripts/sync_flat_skill.py` 生成） | `qq-music-cli` |
+| 渠道               | 目录                                                                | 名字           |
+| ------------------ | ------------------------------------------------------------------- | -------------- |
+| Claude Code、Codex | `skills/cli/`（源头）                                               | `qq-music:cli` |
+| Pi、OpenCode       | `flat-skills/qq-music-cli/`（由 `scripts/sync_flat_skill.py` 生成） | `qq-music-cli` |
 
 skill 由三份文件组成：
+
 - `SKILL.md`：安装、命令和安全规则。
 - `references/concepts.md`：QQ 音乐的数据模型，包括 `dir_id` 和 `tid` 的区别、「我喜欢」、歌曲的多个版本、语言和流派代码、限制。
 - `references/workflows.md`：曲库体检、整理「我喜欢」、根据描述生成歌单、合并、拆分、复制、去重、规则同步、备份、清理等场景。里面的 `jq` 查询都实测过。
@@ -106,14 +109,14 @@ skill 由三份文件组成：
 
 以下接口都在真实账号上验证过：
 
-| 能力 | module / method |
-|---|---|
-| 列出歌单 | `music.musicasset.PlaylistBaseRead` / `GetPlaylistByUin` |
-| 读歌单 | `music.srfDissInfo.aiDissInfo` / `uniform_get_Dissinfo` |
-| 建歌单 / 删歌单 | `music.musicasset.PlaylistBaseWrite` / `AddPlaylist`、`DelPlaylist` |
-| 加歌 / 删歌 | `music.musicasset.PlaylistDetailWrite` / `AddSonglist`、`DelSonglist` |
-| 歌曲元数据 | `music.trackInfo.UniformRuleCtrl` / `CgiGetTrackInfo`、`music.pf_song_detail_svr` / `get_song_detail_yqq` |
-| 搜索 | `music.search.SearchCgiService` / `DoSearchForQQMusicDesktop` |
+| 能力            | module / method                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------- |
+| 列出歌单        | `music.musicasset.PlaylistBaseRead` / `GetPlaylistByUin`                                                  |
+| 读歌单          | `music.srfDissInfo.aiDissInfo` / `uniform_get_Dissinfo`                                                   |
+| 建歌单 / 删歌单 | `music.musicasset.PlaylistBaseWrite` / `AddPlaylist`、`DelPlaylist`                                       |
+| 加歌 / 删歌     | `music.musicasset.PlaylistDetailWrite` / `AddSonglist`、`DelSonglist`                                     |
+| 歌曲元数据      | `music.trackInfo.UniformRuleCtrl` / `CgiGetTrackInfo`、`music.pf_song_detail_svr` / `get_song_detail_yqq` |
+| 搜索            | `music.search.SearchCgiService` / `DoSearchForQQMusicDesktop`                                             |
 
 ## 开发
 

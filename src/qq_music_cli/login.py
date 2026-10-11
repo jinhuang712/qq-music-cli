@@ -169,8 +169,17 @@ def qq_login(on_event: EventFn, *, timeout: float = 180.0, poll: float = 1.5) ->
     with _browser() as web:
         shown = web.get(
             f"{PT_HOST}/ptqrshow",
-            params={"appid": PT_APP["aid"], "daid": PT_APP["daid"], "pt_3rd_aid": QQ_CONNECT_APP,
-                    "d": 72, "e": 2, "l": "M", "s": 3, "v": 4, "t": random.random()},
+            params={
+                "appid": PT_APP["aid"],
+                "daid": PT_APP["daid"],
+                "pt_3rd_aid": QQ_CONNECT_APP,
+                "d": 72,
+                "e": 2,
+                "l": "M",
+                "s": 3,
+                "v": 4,
+                "t": random.random(),
+            },
             headers=PT_REFERER,
         )
         qrsig = shown.cookies.get("qrsig")
@@ -228,8 +237,12 @@ def wechat_login(on_event: EventFn, *, timeout: float = 180.0) -> Credential:
         page = web.get(
             f"{WX_HOST}/connect/qrconnect",
             params=dict(
-                appid=WX_APP, redirect_uri=landing_page(2), response_type="code", scope="snsapi_login",
-                state="STATE", href="https://y.qq.com/mediastyle/music_v17/src/css/popup_wechat.css#wechat_redirect",
+                appid=WX_APP,
+                redirect_uri=landing_page(2),
+                response_type="code",
+                scope="snsapi_login",
+                state="STATE",
+                href="https://y.qq.com/mediastyle/music_v17/src/css/popup_wechat.css#wechat_redirect",
             ),
         )
         qr_id = wx_qr_uuid(page.text)

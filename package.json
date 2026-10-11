@@ -8,15 +8,15 @@
     "qq-music",
     "skill"
   ],
+  "homepage": "https://jinhuang712.github.io/qq-music-cli/",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jinhuang712/qq-music-cli.git"
+  },
   "pi": {
     "skills": [
       "./flat-skills"
     ]
-  },
-  "license": "MIT",
-  "homepage": "https://jinhuang712.github.io/qq-music-cli/",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/jinhuang712/qq-music-cli.git"
   }
 }

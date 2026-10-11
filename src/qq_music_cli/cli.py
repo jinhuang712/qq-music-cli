@@ -10,7 +10,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import typer
 
@@ -47,7 +47,7 @@ def note(event: str, **fields: Any) -> None:
     sys.stderr.flush()
 
 
-def _fields(spec: Optional[str]) -> list[str] | None:
+def _fields(spec: str | None) -> list[str] | None:
     return [f.strip() for f in spec.split(",") if f.strip()] if spec else None
 
 
@@ -65,7 +65,11 @@ def _library(*, required: bool = True) -> Library:
         raise AuthError("not logged in; run `qqmusic login`")
     if cred is not None:
         left = cred.seconds_left()
-        if left is not None and left < REFRESH_MARGIN and (cred.login.get("refresh_key") or cred.login.get("refresh_token")):
+        if (
+            left is not None
+            and left < REFRESH_MARGIN
+            and (cred.login.get("refresh_key") or cred.login.get("refresh_token"))
+        ):
             try:
                 cred = login_flows.refresh(cred)
                 store.save(cred)
@@ -100,8 +104,10 @@ def _main(
 @app.command()
 def login(
     wechat: bool = typer.Option(False, "--wechat", help="Scan with WeChat instead of QQ."),
-    cookie_file: Optional[Path] = typer.Option(
-        None, "--cookie-file", help="Import cookies (Playwright storage-state JSON, cookie list JSON, or a Cookie header)."
+    cookie_file: Path | None = typer.Option(
+        None,
+        "--cookie-file",
+        help="Import cookies (Playwright storage-state JSON, cookie list JSON, or a Cookie header).",
     ),
     ui: bool = typer.Option(True, "--ui/--no-ui", help="Show the QR code and live status in a small browser window."),
     timeout: float = typer.Option(180, help="Seconds to wait for the scan."),
@@ -147,7 +153,12 @@ def login(
         store.save(cred)
     except QQMusicError as exc:
         if page:
-            page.update(status="error" if page.snapshot()["status"] not in ("expired", "refused") else page.snapshot()["status"], message=exc.message)
+            page.update(
+                status="error"
+                if page.snapshot()["status"] not in ("expired", "refused")
+                else page.snapshot()["status"],
+                message=exc.message,
+            )
             page.close()
         raise
     if page:
@@ -206,8 +217,8 @@ def playlists() -> None:
 def show(
     playlist: str = typer.Argument(..., help="Name, dir_id, tid, or `liked`. Any public tid works too."),
     offset: int = typer.Option(0, help="Skip this many songs."),
-    limit: Optional[int] = typer.Option(None, help="Return at most this many songs (default: all)."),
-    fields: Optional[str] = typer.Option(None, help="Comma-separated song fields to keep, e.g. id,type,name,artist."),
+    limit: int | None = typer.Option(None, help="Return at most this many songs (default: all)."),
+    fields: str | None = typer.Option(None, help="Comma-separated song fields to keep, e.g. id,type,name,artist."),
 ) -> None:
     """List the songs in a playlist."""
     lib = _library()
@@ -219,8 +230,8 @@ def show(
 
 @app.command()
 def liked(
-    limit: Optional[int] = typer.Option(None, help="Return at most this many songs (default: all)."),
-    fields: Optional[str] = typer.Option(None, help="Comma-separated song fields to keep."),
+    limit: int | None = typer.Option(None, help="Return at most this many songs (default: all)."),
+    fields: str | None = typer.Option(None, help="Comma-separated song fields to keep."),
 ) -> None:
     """List the songs in 我喜欢."""
     show(playlist="liked", offset=0, limit=limit, fields=fields)
@@ -242,8 +253,10 @@ def faved(kind: str = typer.Argument("playlists", help="`playlists` or `albums`.
 def song(
     songs: list[str] = typer.Argument(None, help="Song ids, id:type pairs or mids."),
     stdin: bool = typer.Option(False, "--stdin", help="Also read song refs from stdin."),
-    detail: bool = typer.Option(False, "--detail", help="Add genre/language/company as text (one extra call per song)."),
-    fields: Optional[str] = typer.Option(None, help="Comma-separated fields to keep."),
+    detail: bool = typer.Option(
+        False, "--detail", help="Add genre/language/company as text (one extra call per song)."
+    ),
+    fields: str | None = typer.Option(None, help="Comma-separated fields to keep."),
 ) -> None:
     """Show song metadata (album, duration, release date, language, genre)."""
     refs = read_song_refs(songs or [], _stdin_text(stdin))
@@ -260,7 +273,7 @@ def search(
     type_: str = typer.Option("song", "--type", help=f"One of: {', '.join(SEARCH_TYPES)}."),
     page: int = typer.Option(1, min=1),
     limit: int = typer.Option(20, min=1, max=50),
-    fields: Optional[str] = typer.Option(None, help="Comma-separated fields to keep."),
+    fields: str | None = typer.Option(None, help="Comma-separated fields to keep."),
 ) -> None:
     """Search the QQ Music catalogue."""
     result = _library(required=False).search(query, kind=type_, page=page, limit=limit)
@@ -275,7 +288,7 @@ def lyrics(song_ref: str = typer.Argument(..., metavar="SONG")) -> None:
 
 
 @app.command()
-def export(out: Optional[Path] = typer.Option(None, help="Directory to write into (default: the data dir).")) -> None:
+def export(out: Path | None = typer.Option(None, help="Directory to write into (default: the data dir).")) -> None:
     """Snapshot your whole library (all playlists with songs, collected playlists and albums) to a JSON file."""
     data = _library().export()
     directory = (out or exports_dir()).expanduser()
@@ -336,7 +349,9 @@ def delete(
 def add(
     playlist: str = typer.Argument(..., help="Target playlist: name, dir_id, tid or `liked`."),
     songs: list[str] = typer.Argument(None, help="Song ids, id:type pairs or mids."),
-    stdin: bool = typer.Option(False, "--stdin", help="Also read song refs (lines, JSON array, or `qqmusic show` output) from stdin."),
+    stdin: bool = typer.Option(
+        False, "--stdin", help="Also read song refs (lines, JSON array, or `qqmusic show` output) from stdin."
+    ),
     dry_run: bool = _dry,
     verify: bool = _verify,
 ) -> None:

@@ -97,7 +97,10 @@ class FakeQQMusic:
                 "type": 0,
                 "name": f"Song {sid}",
                 "title": f"Song {sid}",
-                "singer": [{"id": 1, "mid": "singer1", "name": "Artist A"}, {"id": 2, "mid": "singer2", "name": "Artist B"}],
+                "singer": [
+                    {"id": 1, "mid": "singer1", "name": "Artist A"},
+                    {"id": 2, "mid": "singer2", "name": "Artist B"},
+                ],
                 "album": {"id": 77, "mid": "album77", "name": "Album 77"},
                 "interval": 200,
                 "time_public": "2020-01-01",
@@ -111,7 +114,9 @@ class FakeQQMusic:
         self.add_playlist("我喜欢", dir_id=201, tid=5001)
 
     # -- state helpers
-    def add_playlist(self, name: str, songs: list[int] | None = None, dir_id: int | None = None, tid: int | None = None) -> dict[str, Any]:
+    def add_playlist(
+        self, name: str, songs: list[int] | None = None, dir_id: int | None = None, tid: int | None = None
+    ) -> dict[str, Any]:
         if dir_id is None:
             dir_id, self._next_dir = self._next_dir, self._next_dir + 1
         if tid is None:
@@ -151,7 +156,13 @@ class FakeQQMusic:
     def rpc_GetPlaylistByUin(self, p):
         return {
             "v_playlist": [
-                {"dirId": pl["dirId"], "tid": pl["tid"], "dirName": pl["dirName"], "songNum": len(pl["songs"]), "dirShow": 1}
+                {
+                    "dirId": pl["dirId"],
+                    "tid": pl["tid"],
+                    "dirName": pl["dirName"],
+                    "songNum": len(pl["songs"]),
+                    "dirShow": 1,
+                }
                 for pl in self.playlists
             ]
         }

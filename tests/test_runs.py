@@ -52,8 +52,15 @@ def write_run(directory, run_id, command, ops, created_at=1):
 
 
 def test_list_runs_newest_first_with_summaries(runs_path):
-    write_run(runs_path, "20260101-000000-aaaaaa", "first", [{"op": "add", "playlist": PL, "songs": [{"id": 1}, {"id": 2}]}])
-    write_run(runs_path, "20260102-000000-bbbbbb", "second", [{"op": "remove", "playlist": PL, "songs": [{"id": 1}]}, {"op": "delete", "playlist": PL, "songs": []}])
+    write_run(
+        runs_path, "20260101-000000-aaaaaa", "first", [{"op": "add", "playlist": PL, "songs": [{"id": 1}, {"id": 2}]}]
+    )
+    write_run(
+        runs_path,
+        "20260102-000000-bbbbbb",
+        "second",
+        [{"op": "remove", "playlist": PL, "songs": [{"id": 1}]}, {"op": "delete", "playlist": PL, "songs": []}],
+    )
     write_run(runs_path, "20260103-000000-cccccc", "third", [{"op": "create", "playlist": PL}])
     out = list_runs(directory=runs_path)
     assert [r["command"] for r in out] == ["third", "second", "first"]

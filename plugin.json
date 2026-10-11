@@ -6,14 +6,7 @@
   "author": {
     "name": "jinhuang712"
   },
-  "keywords": [
-    "qq-music",
-    "qqmusic",
-    "playlist",
-    "music",
-    "cli",
-    "skill"
-  ],
+  "keywords": ["qq-music", "qqmusic", "playlist", "music", "cli", "skill"],
   "homepage": "https://jinhuang712.github.io/qq-music-cli/",
   "repository": "https://github.com/jinhuang712/qq-music-cli",
   "license": "MIT"

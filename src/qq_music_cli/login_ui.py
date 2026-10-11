@@ -140,9 +140,7 @@ class LoginPage:
     def set_qr(self, image: bytes, mimetype: str, app: str, deadline: float) -> None:
         with self._lock:
             self._qr = (image, mimetype)
-            self._state.update(
-                status="waiting", app=app, deadline=deadline, qr_version=self._state["qr_version"] + 1
-            )
+            self._state.update(status="waiting", app=app, deadline=deadline, qr_version=self._state["qr_version"] + 1)
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:

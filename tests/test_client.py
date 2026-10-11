@@ -52,9 +52,7 @@ def with_set_cookie(response):
 
 
 def test_server_set_cookie_is_never_replayed(make_client):
-    seen, client = seen_bodies(
-        make_client, lambda r: with_set_cookie(ok({}))
-    )
+    seen, client = seen_bodies(make_client, lambda r: with_set_cookie(ok({})))
     client.rpc("m", "n")
     client.rpc("m", "n")
     assert "evil" not in seen[1].headers.get("cookie", "")
@@ -280,7 +278,9 @@ def test_get_legacy_plain_json_and_query(make_client):
         return httpx.Response(200, json={"code": 0, "lyric": "la la"})
 
     client = make_client(handler)
-    data = client.get_legacy("https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg", {"songmid": "abc", "nobase64": 1})
+    data = client.get_legacy(
+        "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg", {"songmid": "abc", "nobase64": 1}
+    )
     assert data["lyric"] == "la la"
     req = seen[0]
     assert req.method == "GET" and req.url.path == "/lyric/fcgi-bin/fcg_query_lyric_new.fcg"
@@ -289,7 +289,14 @@ def test_get_legacy_plain_json_and_query(make_client):
     assert f"qm_keyst={FAKE_KEY}" in req.headers["cookie"]
 
 
-@pytest.mark.parametrize("body", ['MusicJsonCallback({"code":0,"lyric":"x"})', 'cb({"code":0,"lyric":"x"});', ' jsonp1 ( {"code": 0, "lyric": "x"} ) '])
+@pytest.mark.parametrize(
+    "body",
+    [
+        'MusicJsonCallback({"code":0,"lyric":"x"})',
+        'cb({"code":0,"lyric":"x"});',
+        ' jsonp1 ( {"code": 0, "lyric": "x"} ) ',
+    ],
+)
 def test_get_legacy_jsonp(make_client, body):
     client = make_client(lambda r: httpx.Response(200, text=body))
     assert client.get_legacy("https://c.y.qq.com/x/y.fcg", {})["lyric"] == "x"
@@ -304,10 +311,14 @@ def test_get_legacy_error_codes(make_client):
     with pytest.raises(AuthError):
         make_client(lambda r: httpx.Response(200, json={"code": 1000})).get_legacy("https://c.y.qq.com/a/b.fcg", {})
     with pytest.raises(ApiError) as e:
-        make_client(lambda r: httpx.Response(200, json={"code": -1, "msg": "nope"})).get_legacy("https://c.y.qq.com/a/b.fcg", {})
+        make_client(lambda r: httpx.Response(200, json={"code": -1, "msg": "nope"})).get_legacy(
+            "https://c.y.qq.com/a/b.fcg", {}
+        )
     assert e.value.module == "b.fcg"
     # missing code is treated as success
-    assert make_client(lambda r: httpx.Response(200, json={"lyric": "x"})).get_legacy("https://c.y.qq.com/a/b.fcg", {}) == {"lyric": "x"}
+    assert make_client(lambda r: httpx.Response(200, json={"lyric": "x"})).get_legacy(
+        "https://c.y.qq.com/a/b.fcg", {}
+    ) == {"lyric": "x"}
 
 
 def test_get_legacy_anonymous(make_client):

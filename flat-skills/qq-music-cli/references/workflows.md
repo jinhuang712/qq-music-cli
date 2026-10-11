@@ -45,7 +45,7 @@ Report what you found as a short table: counts plus a few examples per finding. 
 
 ## 2. Organise 我喜欢 into themed playlists
 
-Typical asks: "按语言/流派/心情/年代整理我喜欢的歌". The result is a set of playlists that the liked songs are *copied* into. Never remove songs from 我喜欢.
+Typical asks: "按语言/流派/心情/年代整理我喜欢的歌". The result is a set of playlists that the liked songs are _copied_ into. Never remove songs from 我喜欢.
 
 1. Export the library, then choose the grouping.
    - **Language:** use the `language` code (see concepts.md). It is cheap and exact.

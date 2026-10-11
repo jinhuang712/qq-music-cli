@@ -157,7 +157,7 @@ class Client:
         """`comm` replaces the web comm entirely; `comm_extra` is merged into it."""
         payload: dict[str, Any] = {"comm": dict(comm) if comm is not None else self.comm(comm_extra)}
         for i, call in enumerate(calls):
-            payload[f"req_{i}"] = dict(zip(("module", "method", "param"), call))
+            payload[f"req_{i}"] = dict(zip(("module", "method", "param"), call, strict=True))
         body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
         tries = risk_retries + 1 if idempotent else 1
         for attempt in range(tries):

@@ -230,7 +230,9 @@ def test_credential_from_login_defaults_lifetime_and_type():
     assert cred.login_type == WECHAT  # inferred from the W_X prefix
 
 
-@pytest.mark.parametrize("patch", [{"musickey": ""}, {"str_musicid": "0", "musicid": 0}, {"str_musicid": "", "musicid": ""}])
+@pytest.mark.parametrize(
+    "patch", [{"musickey": ""}, {"str_musicid": "0", "musicid": 0}, {"str_musicid": "", "musicid": ""}]
+)
 def test_credential_from_login_rejects_incomplete(patch):
     with pytest.raises(AuthError) as e:
         credential_from_login(login_response(**patch), "qr")

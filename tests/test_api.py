@@ -465,7 +465,7 @@ def test_unauthenticated_library_raises_auth_error():
     from qq_music_cli.errors import AuthError
 
     with pytest.raises(AuthError):
-        api.Library(Client(None)).uin
+        _ = api.Library(Client(None)).uin
 
 
 def test_search_rejects_unknown_type(lib):

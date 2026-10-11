@@ -38,7 +38,9 @@ def test_parse_json_object_id_wins_and_extra_fields_dropped():
     assert models.parse_song_ref(json.dumps({"mid": MID, "name": "n"})) == {"mid": MID}
 
 
-@pytest.mark.parametrize("bad", ["", "   ", "hello", "12:ab", "short", "{bad json", '{"name": "no ids"}', "has space 1234"])
+@pytest.mark.parametrize(
+    "bad", ["", "   ", "hello", "12:ab", "short", "{bad json", '{"name": "no ids"}', "has space 1234"]
+)
 def test_parse_invalid_raises_usage_error(bad):
     with pytest.raises(UsageError) as e:
         models.parse_song_ref(bad)
@@ -59,12 +61,17 @@ def test_read_refs_json_array():
 
 
 def test_read_refs_show_document():
-    doc = {"playlist": {"name": "x"}, "count": 2, "complete": True, "songs": [{"id": 10, "type": 0, "name": "a"}, {"id": 11, "type": 0, "name": "b"}]}
+    doc = {
+        "playlist": {"name": "x"},
+        "count": 2,
+        "complete": True,
+        "songs": [{"id": 10, "type": 0, "name": "a"}, {"id": 11, "type": 0, "name": "b"}],
+    }
     assert models.read_song_refs([], json.dumps(doc, indent=2)) == [{"id": 10, "type": 0}, {"id": 11, "type": 0}]
 
 
 def test_read_refs_jsonl():
-    text = '{"id": 1, "type": 0}\n{"id": 2}\n\n{"mid": "%s"}\n' % MID
+    text = f'{{"id": 1, "type": 0}}\n{{"id": 2}}\n\n{{"mid": "{MID}"}}\n'
     assert models.read_song_refs([], text) == [{"id": 1, "type": 0}, {"id": 2}, {"mid": MID}]
 
 
@@ -139,7 +146,15 @@ def test_song_release_date_falls_back_to_album():
 
 
 def test_faved_album_unix_pubtime_to_date():
-    raw = {"id": 1, "mid": "m", "name": "Album", "songnum": 10, "pubtime": 1577808000, "ordertime": 5, "v_singer": [{"id": 1, "name": "A"}, {"id": 2, "name": "B"}]}
+    raw = {
+        "id": 1,
+        "mid": "m",
+        "name": "Album",
+        "songnum": 10,
+        "pubtime": 1577808000,
+        "ordertime": 5,
+        "v_singer": [{"id": 1, "name": "A"}, {"id": 2, "name": "B"}],
+    }
     a = models.faved_album(raw)
     assert a["release_date"] == "2020-01-01"  # 2019-12-31T16:00Z is already Jan 1 in UTC+8
     assert a["artist"] == "A / B"

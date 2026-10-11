@@ -27,8 +27,19 @@ WECHAT = 1
 QQ = 2
 # Login-response fields worth keeping: what refresh needs plus identity. Phone numbers etc. are dropped.
 LOGIN_FIELDS = (
-    "openid", "unionid", "access_token", "refresh_token", "refresh_key", "expired_at",
-    "musicid", "str_musicid", "encryptUin", "loginType", "keyExpiresIn", "musickeyCreateTime", "nick",
+    "openid",
+    "unionid",
+    "access_token",
+    "refresh_token",
+    "refresh_key",
+    "expired_at",
+    "musicid",
+    "str_musicid",
+    "encryptUin",
+    "loginType",
+    "keyExpiresIn",
+    "musickeyCreateTime",
+    "nick",
 )
 LOGIN_TYPE_NAMES = {WECHAT: "wechat", QQ: "qq"}
 

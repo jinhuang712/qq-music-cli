@@ -91,11 +91,18 @@ class FakeTencent:
             self.poll_queries.append(parse_qs(url.query.decode()))
             return httpx.Response(200, text=self.polls.pop(0))
         if path == "/ptqrshow":
-            return httpx.Response(200, content=b"\x89PNG", headers={"Set-Cookie": "qrsig=abcDEF123; Domain=.qq.com; Path=/"})
+            return httpx.Response(
+                200, content=b"\x89PNG", headers={"Set-Cookie": "qrsig=abcDEF123; Domain=.qq.com; Path=/"}
+            )
         if path == "/check_sig":
-            return httpx.Response(302, headers={"Set-Cookie": "p_skey=PSKEY; Domain=.qq.com; Path=/", "Location": "https://graph.qq.com/x"})
+            return httpx.Response(
+                302,
+                headers={"Set-Cookie": "p_skey=PSKEY; Domain=.qq.com; Path=/", "Location": "https://graph.qq.com/x"},
+            )
         if path == "/oauth2.0/authorize":
-            return httpx.Response(302, headers={"Location": "https://y.qq.com/portal/wx_redirect.html?code=OAUTHCODE&state=state"})
+            return httpx.Response(
+                302, headers={"Location": "https://y.qq.com/portal/wx_redirect.html?code=OAUTHCODE&state=state"}
+            )
         return httpx.Response(404)
 
 
@@ -104,9 +111,7 @@ def fake(monkeypatch):
     def install(polls: list[str]) -> FakeTencent:
         server = FakeTencent(polls)
         transport = httpx.MockTransport(server.handler)
-        monkeypatch.setattr(
-            login, "_browser", lambda: httpx.Client(transport=transport, follow_redirects=False)
-        )
+        monkeypatch.setattr(login, "_browser", lambda: httpx.Client(transport=transport, follow_redirects=False))
         monkeypatch.setattr(
             login, "Client", lambda cred: Client(cred, transport=transport, sleep=lambda s: None, min_interval=0)
         )
@@ -117,7 +122,9 @@ def fake(monkeypatch):
 
 
 def test_wechat_flow(fake):
-    server = fake([REAL_WX_WAITING, "window.wx_errcode=404;window.wx_code='';", "window.wx_errcode=405;window.wx_code='WXCODE';"])
+    server = fake(
+        [REAL_WX_WAITING, "window.wx_errcode=404;window.wx_code='';", "window.wx_errcode=405;window.wx_code='WXCODE';"]
+    )
     events: list[tuple[str, dict]] = []
     cred = login.wechat_login(lambda e, info: events.append((e, info)), timeout=30)
     assert [e for e, _ in events] == ["qr_ready", "waiting", "scanned"]
@@ -138,7 +145,13 @@ def test_wechat_expired(fake):
 
 
 def test_qq_flow(fake):
-    server = fake([REAL_QQ_WAITING, "ptuiCB('67','0','','0','二维码认证中。', '')", f"ptuiCB('0','0','{CHECK_SIG}','0','登录成功！', 'nick')"])
+    server = fake(
+        [
+            REAL_QQ_WAITING,
+            "ptuiCB('67','0','','0','二维码认证中。', '')",
+            f"ptuiCB('0','0','{CHECK_SIG}','0','登录成功！', 'nick')",
+        ]
+    )
     events: list[str] = []
     cred = login.qq_login(lambda e, info: events.append(e), timeout=30)
     assert events == ["qr_ready", "waiting", "scanned"]
@@ -148,7 +161,11 @@ def test_qq_flow(fake):
         expected_token = (expected_token * 33 + ord(ch)) & 0x7FFFFFFF
     assert first["ptqrtoken"] == [str(expected_token)] and first["aid"] == ["716027609"]
     req = server.exchanges[0]["req_0"]
-    assert (req["module"], req["method"], req["param"]) == ("QQConnectLogin.LoginServer", "QQLogin", {"code": "OAUTHCODE"})
+    assert (req["module"], req["method"], req["param"]) == (
+        "QQConnectLogin.LoginServer",
+        "QQLogin",
+        {"code": "OAUTHCODE"},
+    )
     assert server.exchanges[0]["comm"]["tmeLoginType"] == QQ
     assert cred.source == "qq-qr"
 
@@ -163,12 +180,24 @@ def test_refresh_sends_expected_fields(fake):
     server = fake([])
     from qq_music_cli.auth import Credential
 
-    cred = Credential(uin="12345", musickey="W_X_old", login_type=WECHAT, source="wechat-qr",
-                      login={"openid": "oid", "unionid": "uid", "refresh_token": "rt"})
+    cred = Credential(
+        uin="12345",
+        musickey="W_X_old",
+        login_type=WECHAT,
+        source="wechat-qr",
+        login={"openid": "oid", "unionid": "uid", "refresh_token": "rt"},
+    )
     fresh = login.refresh(cred)
     param = server.exchanges[0]["req_0"]["param"]
-    assert param == {"musickey": "W_X_old", "str_musicid": "12345", "openid": "oid", "unionid": "uid",
-                     "refresh_key": "", "refresh_token": "rt", "loginMode": 2}
+    assert param == {
+        "musickey": "W_X_old",
+        "str_musicid": "12345",
+        "openid": "oid",
+        "unionid": "uid",
+        "refresh_key": "",
+        "refresh_token": "rt",
+        "loginMode": 2,
+    }
     assert fresh.musickey == "Q_H_L_fake" and fresh.source == "wechat-qr" and fresh.login["openid"] == "oid"
 
 

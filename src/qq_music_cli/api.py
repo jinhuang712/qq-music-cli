@@ -85,8 +85,7 @@ class Library:
         if len(exact) > 1 or len(folded) > 1:
             dupes = exact or folded
             raise UsageError(
-                f"{len(dupes)} playlists are named {ref!r}; use a dir_id: "
-                + ", ".join(str(p["dir_id"]) for p in dupes)
+                f"{len(dupes)} playlists are named {ref!r}; use a dir_id: " + ", ".join(str(p["dir_id"]) for p in dupes)
             )
         if len(folded) == 1:
             return folded[0]
@@ -109,7 +108,9 @@ class Library:
                 {"disstid": tid, "song_begin": begin, "song_num": want, "ctx": 1},
             )
             if data.get("code") not in (0, None):
-                raise ApiError(data.get("msg") or f"playlist read failed (code {data.get('code')})", code=data.get("code"))
+                raise ApiError(
+                    data.get("msg") or f"playlist read failed (code {data.get('code')})", code=data.get("code")
+                )
             info = data.get("dirinfo") or info
             total = data.get("total_song_num", total)
             page = data.get("songlist") or []
@@ -137,7 +138,9 @@ class Library:
         return {(s["id"], s["type"]) for s in result["songs"]}
 
     def faved_playlists(self) -> list[dict[str, Any]]:
-        return self._paged_fav("music.musicasset.PlaylistFavRead", "CgiGetPlaylistFavInfo", "uin", models.faved_playlist)
+        return self._paged_fav(
+            "music.musicasset.PlaylistFavRead", "CgiGetPlaylistFavInfo", "uin", models.faved_playlist
+        )
 
     def faved_albums(self) -> list[dict[str, Any]]:
         return self._paged_fav("music.musicasset.AlbumFavRead", "CgiGetAlbumFavInfo", "euin", models.faved_album)
@@ -182,7 +185,13 @@ class Library:
             data = self.client.rpc(
                 "music.trackInfo.UniformRuleCtrl",
                 "CgiGetTrackInfo",
-                {"mids": [r["mid"] for r in chunk], "types": [0] * len(chunk), "modify_stamp": [0] * len(chunk), "ctx": 0, "client": 1},
+                {
+                    "mids": [r["mid"] for r in chunk],
+                    "types": [0] * len(chunk),
+                    "modify_stamp": [0] * len(chunk),
+                    "ctx": 0,
+                    "client": 1,
+                },
             )
             for t in data.get("tracks") or []:
                 found[f"mid:{t.get('mid')}"] = models.song(t)
@@ -221,7 +230,15 @@ class Library:
         )
         body = data.get("body") or {}
         meta = data.get("meta") or {}
-        block = {"song": "song", "singer": "singer", "album": "album", "playlist": "songlist", "mv": "mv", "lyric": "song", "user": "user"}[kind]
+        block = {
+            "song": "song",
+            "singer": "singer",
+            "album": "album",
+            "playlist": "songlist",
+            "mv": "mv",
+            "lyric": "song",
+            "user": "user",
+        }[kind]
         items = (body.get(block) or {}).get("list") or []
         results = [models.song(i) for i in items] if block == "song" else [_search_item(kind, i) for i in items]
         return {"query": query, "type": kind, "page": page, "total": meta.get("sum"), "results": results}
@@ -231,7 +248,11 @@ class Library:
         data = self.client.get_legacy(
             "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg", {"songmid": track["mid"], "nobase64": 1}
         )
-        return {"song": track, "lyric": _unescape(data.get("lyric", "")), "trans": _unescape(data.get("trans", "")) or None}
+        return {
+            "song": track,
+            "lyric": _unescape(data.get("lyric", "")),
+            "trans": _unescape(data.get("trans", "")) or None,
+        }
 
     # -- writes -----------------------------------------------------------------------------
 
@@ -299,7 +320,11 @@ class Library:
                 "AddSonglist",
                 {"dirId": pl["dir_id"], "v_songInfo": [{"songType": s["type"], "songId": s["id"]} for s in chunk]},
             )
-            existed = {(x.get("songId"), x.get("songType")) for x in (data.get("result") or {}).get("songlist") or [] if x.get("existed")}
+            existed = {
+                (x.get("songId"), x.get("songType"))
+                for x in (data.get("result") or {}).get("songlist") or []
+                if x.get("existed")
+            }
             new = [s for s in chunk if (s["id"], s["type"]) not in existed]
             if new:
                 run.record({"op": "add", "playlist": _pl_ref(pl), "songs": [_song_ref(s) for s in new]})
@@ -367,7 +392,9 @@ class Library:
                 elif kind == "create":
                     pl = self._current(op["playlist"])
                     if pl.get("song_count") and not force:
-                        results.append({"undo": "create", "skipped": "playlist is not empty; use --force", "playlist": pl["name"]})
+                        results.append(
+                            {"undo": "create", "skipped": "playlist is not empty; use --force", "playlist": pl["name"]}
+                        )
                         continue
                     self.delete_playlist(pl, run=run)
                     results.append({"undo": "create", "deleted": pl["name"]})
@@ -384,7 +411,9 @@ class Library:
 
     def _current(self, ref: dict[str, Any]) -> dict[str, Any]:
         for p in self.playlists(refresh=True):
-            if p["tid"] == ref.get("tid") or (ref.get("dir_id") and p["dir_id"] == ref.get("dir_id") and p["name"] == ref.get("name")):
+            if p["tid"] == ref.get("tid") or (
+                ref.get("dir_id") and p["dir_id"] == ref.get("dir_id") and p["name"] == ref.get("name")
+            ):
                 return p
         raise UsageError(f"playlist {ref.get('name')!r} no longer exists")
 
@@ -469,5 +498,10 @@ def _search_item(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
             "listen_count": raw.get("listennum"),
         }
     if kind == "singer":
-        return {"id": raw.get("singerID"), "mid": raw.get("singerMID"), "name": raw.get("singerName"), "song_count": raw.get("songNum")}
+        return {
+            "id": raw.get("singerID"),
+            "mid": raw.get("singerMID"),
+            "name": raw.get("singerName"),
+            "song_count": raw.get("songNum"),
+        }
     return raw
