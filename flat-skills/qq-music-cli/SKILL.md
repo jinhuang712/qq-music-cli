@@ -140,5 +140,3 @@ qqmusic show RNB --fields id,type | qqmusic add "RNB精选" --stdin --dry-run
 8. 对比歌手（关注了谁、收藏了谁的歌）时，用 `qqmusic following --saved`，它按歌手 `mid` 统计。自己写查询也必须按 `mid` 匹配，不能按名字：关注列表里的名字常带括号译名，和歌曲里的署名对不上。回答时说明比的是「我喜欢」（`liked_songs`）还是所有歌单（`saved_songs`）。
 9. 只取需要的字段。几百首歌的歌单用默认字段或 `+字段`，不要用 `--fields all`。要全部字段做分析时，用 `qqmusic export`：导出文件里有所有字段，`jq` 查询不占上下文。
 10. 用中文回复。用户偶尔用英文写一句，不代表要换语言；只有用户明确要求时才换。
-11. 给用户列歌时（方案、样本、候选），每个歌单或每一组用一个二级标题，下面一首歌一行，写成 `[歌名 - 歌手](url)`。不用表格。链接用 CLI 给的 `url`（`--fields +url`、`match` 的结果、导出文件里都有），不要自己拼。
-12. 按气质（听感）分类或找歌时，照 [references/workflows.md](references/workflows.md) 第 12 节做：逐首判断，旧歌单和歌手只是线索；语种、流派代码代替不了气质。
