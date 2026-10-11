@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import base64
 import random
 import secrets
 import time
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from . import models
+from . import cover as covers, models
 from .client import Client
 from .errors import ApiError, AuthError, UsageError
 from .models import LIKED_DIR_ID
@@ -26,6 +27,8 @@ FOLLOW_METHODS = {"singers": "GetFollowSingerList", "users": "GetFollowUserList"
 EDIT_MASK = 95
 UNEDITABLE_DIRS = range(201, 207)  # 我喜欢 and other system lists; the web editor refuses these too
 NAME_MAX, DESC_MAX = 20, 2000  # limits the web editor enforces
+DIR_SHOW = {True: 1, False: 2}  # the editor's 歌单隐私 radio: 1 所有人可见, 2 仅自己可见 (0 is ignored)
+FAV_KINDS = ("playlist", "album")
 SEARCH_TYPES = {"song": 0, "singer": 1, "album": 2, "playlist": 3, "mv": 4, "lyric": 7, "user": 8}
 
 
@@ -417,7 +420,14 @@ class Library:
         return info
 
     def edit_playlist(
-        self, pl: dict[str, Any], *, run: RunLog, name: str | None = None, desc: str | None = None
+        self,
+        pl: dict[str, Any],
+        *,
+        run: RunLog,
+        name: str | None = None,
+        desc: str | None = None,
+        public: bool | None = None,
+        cover: str | None = None,
     ) -> dict[str, Any]:
         _require_own(pl)
         if pl["dir_id"] in UNEDITABLE_DIRS:
@@ -429,8 +439,9 @@ class Library:
         if desc is not None and len(desc) > DESC_MAX:
             raise UsageError(f"description must be at most {DESC_MAX} characters")
         info = self.playlist_meta(pl["dir_id"])
-        before = {"name": info.get("title") or "", "desc": info.get("desc") or ""}
-        after = {"name": before["name"] if name is None else name, "desc": before["desc"] if desc is None else desc}
+        before = _edit_state(info)
+        wanted = {"name": name, "desc": desc, "public": public, "cover": cover}
+        after = {k: before[k] if wanted[k] is None else wanted[k] for k in before}
         report: dict[str, Any] = {"playlist": _pl_ref(pl), "before": before, "after": after, "dry_run": run.dry_run}
         if after == before:
             return {**report, "changed": False}
@@ -445,17 +456,83 @@ class Library:
                 "mask": EDIT_MASK,
                 "dirNewName": after["name"],
                 "dirNewDesc": after["desc"],
-                "dirNewPicUrl": info.get("picurl") or "",
+                "dirNewPicUrl": after["cover"],
                 "dirNewPicUrl2": info.get("picurl2") or "",
                 "dirNewtaglist": tags,
-                "dirShow": info.get("dir_show", 1),
+                "dirShow": DIR_SHOW[after["public"]],
             },
         )
         run.record({"op": "edit", "playlist": _pl_ref(pl), "before": before, "after": after})
-        check = self.playlist_meta(pl["dir_id"])
-        seen = {"name": check.get("title") or "", "desc": check.get("desc") or ""}
+        seen = _edit_state(self.playlist_meta(pl["dir_id"]))
         self._playlists = None
-        return {**report, "changed": True, "verified": seen == after, "now": seen}
+        # The server stores the uploaded cover with a resize suffix (`?imageView2/...`).
+        verified = all(_strip_query(seen[k]) == _strip_query(after[k]) for k in after)
+        return {**report, "changed": True, "verified": verified, "now": seen}
+
+    def upload_cover(self, path: Any) -> str:
+        """Upload a local image as a playlist cover (`FileSystem.PutImage`, as the web editor does); returns its URL."""
+        data = "data:image/jpeg;base64," + base64.b64encode(covers.square_jpeg(path)).decode()
+        name = f"{self.uin}_{int(time.time() * 1000)}.jpg"
+        up = self.client.rpc(
+            "music.filesys.FileSystem",
+            "PutImage",
+            {"BusID": "songlist", "FileName": name, "Data": data},
+            idempotent=False,
+        )
+        if up.get("ErrCode") or not up.get("URL"):
+            raise ApiError(up.get("ErrMsg") or "cover upload failed", code=up.get("ErrCode"))
+        return up["URL"]
+
+    # -- collect (收藏) other people's playlists and albums ------------------------------------
+
+    def faved_state(self, kind: str, items: list[Any]) -> dict[Any, bool]:
+        """Whether each playlist tid / album mid is in 收藏 (`IsPlaylistFan` / `IsAlbumFan`)."""
+        if kind == "playlist":
+            data = self.client.rpc("music.musicasset.PlaylistFavRead", "IsPlaylistFan", {"v_tid": items})
+        else:
+            data = self.client.rpc(
+                "music.musicasset.AlbumFavRead", "IsAlbumFan", {"uin": self.uin, "v_albumMid": items}
+            )
+        fans = data.get("m_fan") or {}
+        return {i: bool(fans.get(i) or fans.get(str(i))) for i in items}
+
+    def set_faved(self, kind: str, items: list[Any], *, on: bool, run: RunLog) -> dict[str, Any]:
+        """Collect (`on=True`) or un-collect playlists (by tid) or albums (by mid), then read the state back."""
+        if kind not in FAV_KINDS:
+            raise UsageError("kind must be `playlist` or `album`")
+        items = list(dict.fromkeys(items))
+        if kind == "playlist":
+            own = {p["tid"] for p in self.playlists()}
+            mine = [t for t in items if t in own]
+            if mine:
+                raise UsageError(f"these are your own playlists, not someone else's: {mine}")
+        state = self.faved_state(kind, items)
+        todo = [i for i in items if state[i] != on]
+        report: dict[str, Any] = {
+            "kind": kind,
+            "action": "fav" if on else "unfav",
+            "to_change": todo,
+            "already": [i for i in items if state[i] == on],
+            "dry_run": run.dry_run,
+        }
+        if run.dry_run or not todo:
+            return {**report, "changed": []}
+        module, method, key = {
+            "playlist": ("music.musicasset.PlaylistFavWrite", "FavPlaylist", "v_playlistId"),
+            "album": ("music.musicasset.AlbumFavWrite", "FavAlbum", "v_albumMid"),
+        }[kind]
+        method = method if on else "Cancel" + method
+        for n, item in enumerate(todo):
+            if n:
+                self._pause()
+            self.client.rpc(module, method, {"uin": self.uin, key: [item]}, idempotent=False)
+        run.record({"op": report["action"], "kind": kind, "items": todo})
+        after = self.faved_state(kind, todo)
+        return {
+            **report,
+            "changed": [i for i in todo if after[i] == on],
+            "not_changed": [i for i in todo if after[i] != on],
+        }
 
     def delete_playlist(self, pl: dict[str, Any], *, run: RunLog) -> dict[str, Any]:
         if pl.get("liked") or pl.get("dir_id") == LIKED_DIR_ID:
@@ -581,9 +658,19 @@ class Library:
                     results.append({"undo": "create", "deleted": pl["name"]})
                 elif kind == "edit":
                     pl = self._current(op["playlist"])
-                    old = op["before"]
-                    self.edit_playlist(pl, run=run, name=old["name"], desc=old["desc"])
+                    old = op["before"]  # runs from before 0.5 have only name and desc
+                    self.edit_playlist(
+                        pl,
+                        run=run,
+                        name=old["name"],
+                        desc=old["desc"],
+                        public=old.get("public"),
+                        cover=old.get("cover"),
+                    )
                     results.append({"undo": "edit", "restored": old["name"], "playlist": pl["name"]})
+                elif kind in ("fav", "unfav"):
+                    r = self.set_faved(op["kind"], op["items"], on=kind == "unfav", run=run)
+                    results.append({"undo": kind, "kind": op["kind"], "restored": r["changed"]})
                 elif kind == "delete":
                     created = self.create_playlist(op["playlist"]["name"], run=run, allow_duplicate=True)
                     pl = self._current(created["playlist"]) if not run.dry_run else created["playlist"]
@@ -635,6 +722,20 @@ class Library:
 def _chunks(items: list[Any], size: int) -> Iterable[list[Any]]:
     for i in range(0, len(items), size):
         yield items[i : i + size]
+
+
+def _edit_state(info: dict[str, Any]) -> dict[str, Any]:
+    """The fields `edit` can change, from the editor's read (`uniform_get_Dissinfo` by dirid)."""
+    return {
+        "name": info.get("title") or "",
+        "desc": info.get("desc") or "",
+        "public": (info.get("dir_show") or 1) == 1,
+        "cover": info.get("picurl") or "",
+    }
+
+
+def _strip_query(value: Any) -> Any:
+    return value.split("?", 1)[0] if isinstance(value, str) else value
 
 
 def _dedupe(songs: list[dict[str, Any]]) -> list[dict[str, Any]]:

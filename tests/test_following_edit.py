@@ -33,8 +33,13 @@ def test_edit_renames_and_keeps_cover_tags_visibility(lib, server, new_run):
     run = new_run()
     result = lib.edit_playlist(lib.resolve_playlist("Old"), run=run, name="  New Name  ", desc="for the road")
     assert result["changed"] and result["verified"]
-    assert result["before"] == {"name": "Old", "desc": ""}
-    assert result["after"] == {"name": "New Name", "desc": "for the road"}
+    assert result["before"] == {"name": "Old", "desc": "", "public": True, "cover": "http://example.invalid/cover.jpg"}
+    assert result["after"] == {
+        "name": "New Name",
+        "desc": "for the road",
+        "public": True,
+        "cover": "http://example.invalid/cover.jpg",
+    }
     sent = server.calls_to("EditPlaylist")[0]
     assert sent["mask"] == api.EDIT_MASK
     assert sent["dirNewPicUrl"] == "http://example.invalid/cover.jpg"
@@ -44,8 +49,8 @@ def test_edit_renames_and_keeps_cover_tags_visibility(lib, server, new_run):
         {
             "op": "edit",
             "playlist": {"dir_id": sent["dirId"], "tid": server.by_name("New Name")["tid"], "name": "Old"},
-            "before": {"name": "Old", "desc": ""},
-            "after": {"name": "New Name", "desc": "for the road"},
+            "before": result["before"],
+            "after": result["after"],
         }
     ]
     assert runs._op_summary(run.data["ops"][0]) == "edit playlist 'Old' -> 'New Name'"

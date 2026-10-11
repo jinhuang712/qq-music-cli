@@ -5,6 +5,7 @@ import json
 import re
 import tomllib
 from pathlib import Path
+from typing import Any
 
 import qq_music_cli
 
@@ -18,10 +19,23 @@ def load(rel: str) -> dict:
     return json.loads((ROOT / rel).read_text())
 
 
-def frontmatter(skill_dir: Path = SKILL_DIR) -> dict[str, str]:
+def frontmatter(skill_dir: Path = SKILL_DIR) -> dict[str, Any]:
+    """Top-level `key: value` lines, plus one level of nesting (used by `metadata:`)."""
     text = (skill_dir / "SKILL.md").read_text()
     block = text.split("---", 2)[1]
-    return dict(line.split(": ", 1) for line in block.strip().splitlines())
+    out: dict[str, Any] = {}
+    parent = None
+    for line in block.strip().splitlines():
+        if line.startswith("  ") and parent:
+            key, value = line.strip().split(": ", 1)
+            out[parent][key] = value
+        elif line.endswith(":"):
+            parent = line[:-1]
+            out[parent] = {}
+        else:
+            key, value = line.split(": ", 1)
+            out[key], parent = value, None
+    return out
 
 
 def test_versions_and_names_match():
@@ -58,11 +72,14 @@ def test_pi_package_points_at_skills():
     assert pkg["private"] is True
 
 
+CORE_KEYS = {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}  # Agent Skills
+
+
 def test_skill_frontmatter_is_portable():
     for skill_dir in (SKILL_DIR, FLAT_DIR):
         fm = frontmatter(skill_dir)
-        # Only keys every agent accepts (Agent Skills core set).
-        assert set(fm) <= {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
+        # The core set, plus the one extension Claude Code and Pi read (see the next test).
+        assert set(fm) <= CORE_KEYS | {"disable-model-invocation"}
         assert fm["name"] == skill_dir.name and NAME_RE.match(fm["name"])  # OpenCode requires name == dir
         assert 1 <= len(fm["description"]) <= 1024
         assert len(fm.get("compatibility", "")) <= 500
@@ -94,3 +111,20 @@ def test_skill_links_resolve():
     for link in links:
         assert (SKILL_DIR / link).is_file(), link
     assert len(text.splitlines()) < 500
+
+
+def test_skill_only_loads_when_the_user_asks():
+    # Claude Code and Pi: hidden from the model, still a slash command.
+    assert frontmatter(SKILL_DIR)["disable-model-invocation"] == "true"
+    assert frontmatter(FLAT_DIR)["disable-model-invocation"] == "true"
+    # Codex: explicit `$` mention only.
+    policy = (SKILL_DIR / "agents" / "openai.yaml").read_text()
+    assert "policy:\n  allow_implicit_invocation: false" in policy
+    # OpenCode: out of <available_skills>, offered as /qq-music-cli.
+    assert frontmatter(FLAT_DIR)["metadata"] == {"opencode/autoinvoke": '"false"', "opencode/slash": '"true"'}
+    assert "metadata" not in frontmatter(SKILL_DIR)
+
+
+def test_skill_greets_on_a_bare_load():
+    text = (SKILL_DIR / "SKILL.md").read_text()
+    assert "QQ 音乐 CLI 工具已加载，你想要做什么？" in text and "🎵" in text

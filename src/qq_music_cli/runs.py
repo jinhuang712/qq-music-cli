@@ -104,4 +104,6 @@ def _op_summary(op: dict[str, Any]) -> str:
         return f"{kind} {len(op.get('songs', []))} song(s) {'to' if kind == 'add' else 'from'} {name!r}"
     if kind == "edit":
         return f"edit playlist {op['before']['name']!r} -> {op['after']['name']!r}"
+    if kind in ("fav", "unfav"):
+        return f"{kind} {len(op['items'])} {op['kind']}(s)"
     return f"{kind} playlist {name!r}"

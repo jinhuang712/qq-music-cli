@@ -405,15 +405,24 @@ def edit(
     playlist: str = typer.Argument(..., help="Your playlist: name, dir_id or tid."),
     name: str | None = typer.Option(None, "--name", help="New name (1-20 characters)."),
     desc: str | None = typer.Option(None, "--desc", help="New description (up to 2000 characters)."),
+    public: bool | None = typer.Option(
+        None, "--public/--private", help="Make the playlist visible to everyone, or only to you."
+    ),
+    cover: Path | None = typer.Option(
+        None, "--cover", help="Image file for the new cover; cropped to a square and uploaded."
+    ),
     dry_run: bool = _dry,
 ) -> None:
-    """Rename a playlist or change its description. Cover, tags and visibility stay as they are."""
-    if name is None and desc is None:
-        raise UsageError("give --name, --desc, or both")
+    """Change a playlist's name, description, visibility or cover. Whatever you do not give stays as it is."""
+    if name is None and desc is None and public is None and cover is None:
+        raise UsageError("give at least one of --name, --desc, --public/--private, --cover")
     lib = _library()
     pl = lib.resolve_playlist(playlist)
     run = RunLog(f"edit {pl['name']}", dry_run=dry_run)
-    _finish(run, lib.edit_playlist(pl, run=run, name=name, desc=desc))
+    cover_url = None
+    if cover is not None:
+        cover_url = f"(upload {cover})" if dry_run else lib.upload_cover(cover)
+    _finish(run, lib.edit_playlist(pl, run=run, name=name, desc=desc, public=public, cover=cover_url))
 
 
 @app.command()
@@ -486,6 +495,45 @@ def unlike(
 ) -> None:
     """Remove songs from 我喜欢."""
     remove(playlist="liked", songs=songs, stdin=stdin, dry_run=dry_run, verify=True)
+
+
+def _fav_items(kind: str, items: list[str]) -> tuple[str, list[Any]]:
+    kind = kind.rstrip("s")
+    if kind == "playlist":
+        bad = [i for i in items if not i.strip().isdigit()]
+        if bad:
+            raise UsageError(f"playlists are given by tid (digits): {bad}")
+        return kind, [int(i) for i in items]
+    if kind == "album":
+        bad = [i for i in items if not models.MID_RE.match(i.strip())]
+        if bad:
+            raise UsageError(f"albums are given by their 14-character mid: {bad}")
+        return kind, [i.strip() for i in items]
+    raise UsageError("kind must be `playlist` or `album`")
+
+
+@app.command()
+def fav(
+    kind: str = typer.Argument(..., help="`playlist` or `album`."),
+    items: list[str] = typer.Argument(..., help="Playlist tids or album mids."),
+    dry_run: bool = _dry,
+) -> None:
+    """Collect (收藏) other people's playlists, or albums."""
+    kind, refs = _fav_items(kind, items)
+    run = RunLog(f"fav {kind}", dry_run=dry_run)
+    _finish(run, _library().set_faved(kind, refs, on=True, run=run))
+
+
+@app.command()
+def unfav(
+    kind: str = typer.Argument(..., help="`playlist` or `album`."),
+    items: list[str] = typer.Argument(..., help="Playlist tids or album mids."),
+    dry_run: bool = _dry,
+) -> None:
+    """Remove playlists or albums from your collection (取消收藏)."""
+    kind, refs = _fav_items(kind, items)
+    run = RunLog(f"unfav {kind}", dry_run=dry_run)
+    _finish(run, _library().set_faved(kind, refs, on=False, run=run))
 
 
 @app.command()

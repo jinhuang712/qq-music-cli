@@ -139,6 +139,8 @@ class FakeQQMusic:
             }
         }
         self.albums = {"ALBUM000000001": [100_000 + i for i in range(60)]}
+        self.faved_album_mids: set[str] = set()
+        self.uploads: list[dict[str, Any]] = []
 
     # -- state helpers
     def add_playlist(
@@ -201,7 +203,7 @@ class FakeQQMusic:
                     "tid": pl["tid"],
                     "dirName": pl["dirName"],
                     "songNum": len(pl["songs"]),
-                    "dirShow": 1,
+                    "dirShow": pl["dir_show"],
                     "desc": "",
                     "strTagIdList": ",".join(str(t["id"]) for t in pl["tags"]),
                     "picUrl": pl["picurl"],
@@ -298,7 +300,12 @@ class FakeQQMusic:
     def rpc_EditPlaylist(self, p):
         pl = self.by_dir(p["dirId"])
         pl["dirName"], pl["desc"] = p["dirNewName"], p["dirNewDesc"]
-        pl["picurl"], pl["picurl2"], pl["dir_show"] = p["dirNewPicUrl"], p["dirNewPicUrl2"], p["dirShow"]
+        pic = p["dirNewPicUrl"]
+        if pic.startswith("https://music-file.") and "?" not in pic:
+            pic += "?imageView2/4/w/300/h/300"  # the server stores uploads with a resize suffix
+        pl["picurl"], pl["picurl2"] = pic, p["dirNewPicUrl2"]
+        if p["dirShow"] in (1, 2):  # anything else is ignored, as on the server
+            pl["dir_show"] = p["dirShow"]
         ids = [int(x) for x in p["dirNewtaglist"].split(",") if x]
         pl["tags"] = [t for t in pl["tags"] if t["id"] in ids]
         return {"result": {"dirId": p["dirId"]}}
@@ -323,6 +330,36 @@ class FakeQQMusic:
 
     def rpc_CgiGetPlaylistFavInfo(self, p):
         return {"v_list": self.faved, "hasmore": 0}
+
+    def rpc_PutImage(self, p):
+        self.uploads.append(p)
+        assert p["BusID"] == "songlist" and p["Data"].startswith("data:image/jpeg;base64,")
+        return {"ErrCode": 0, "ErrMsg": "", "URL": f"https://music-file.y.qq.com/songlist/u/{len(self.uploads)}.jpg"}
+
+    def rpc_IsPlaylistFan(self, p):
+        faved = {f["tid"] for f in self.faved}
+        return {"m_fan": {str(t): t in faved for t in p["v_tid"]}}
+
+    def rpc_FavPlaylist(self, p):
+        for tid in p["v_playlistId"]:
+            if tid not in {f["tid"] for f in self.faved}:
+                self.faved.append({"tid": tid, "name": f"Public {tid}", "songnum": 1})
+        return {"result": 0, "v_failedPlaylistId": []}
+
+    def rpc_CancelFavPlaylist(self, p):
+        self.faved = [f for f in self.faved if f["tid"] not in p["v_playlistId"]]
+        return {"result": 0, "v_failedPlaylistId": []}
+
+    def rpc_IsAlbumFan(self, p):
+        return {"m_fan": {m: m in self.faved_album_mids for m in p["v_albumMid"]}}
+
+    def rpc_FavAlbum(self, p):
+        self.faved_album_mids.update(p["v_albumMid"])
+        return {"result": 0, "v_failedAlbumMid": []}
+
+    def rpc_CancelFavAlbum(self, p):
+        self.faved_album_mids.difference_update(p["v_albumMid"])
+        return {"result": 0, "v_failedAlbumMid": []}
 
     def rpc_get_song_detail_yqq(self, p):
         track = next(s for s in self.catalog.values() if s["mid"] == p["song_mid"])

@@ -1,0 +1,3 @@
+# Codex: load this skill only when the user names it (`$` or `/skills`), never on its own.
+policy:
+  allow_implicit_invocation: false

@@ -1,7 +1,11 @@
 ---
 name: qq-music-cli
-description: 用 `qqmusic` 命令行管理用户自己的 QQ 音乐曲库。适用于：查看歌单和「我喜欢」、查看关注的歌手、查歌曲和专辑信息、搜索曲库、新建、删除或改名歌单、批量加歌删歌、加红心、导出整个曲库、撤销改动。也适用于整理类的需求，比如把「我喜欢」按语种、流派或心情分进不同歌单，根据一句描述生成歌单，合并、拆分、去重歌单，给曲库做一次体检，分析用户的口味和曲风。
+description: 让 agent 帮你管理自己的 QQ 音乐曲库：查看和整理歌单、搜歌建歌单、收藏歌单和专辑、分析口味。
+disable-model-invocation: true
 compatibility: 需要 PATH 里有 `qqmusic` 命令（qq-music-cli，Python 3.11+，用 uv 安装）；钥匙串存储和登录窗口依赖 macOS；需要能访问 y.qq.com。
+metadata:
+  opencode/autoinvoke: "false"
+  opencode/slash: "true"
 ---
 
 # QQ 音乐曲库（`qqmusic`）
@@ -11,6 +15,33 @@ compatibility: 需要 PATH 里有 `qqmusic` 命令（qq-music-cli，Python 3.11+
 - 每条命令在 stdout 只输出一个 JSON。
 - 进度和报错以 JSON 行的形式写到 stderr。
 - 想省 token，就在子命令前加 `--compact`，例如 `qqmusic --compact show RNB`。
+
+## 〇、加载之后先打招呼
+
+这个 skill 只在用户手动加载时才会出现，不会自动加载。
+
+- 用户加载时没有附带具体要求，就原样回复下面这段引导，然后等用户回答。打招呼之前不要运行任何命令。
+- 用户加载时已经说了要做什么，就直接去做，不发引导。
+
+```text
+QQ 音乐 CLI 工具已加载，你想要做什么？你可以让我：
+
+- 看看我有几个歌单，每个歌单有多少首歌
+- 查一首歌的专辑、发行时间和曲风
+- 把一首歌加进歌单，或者加红心
+- 给歌单改名、设成私密、换封面
+
+或者你也可以直接让我：
+
+- 把「我喜欢」按语种或曲风分进几个歌单
+- 找出散落在各个歌单里的重复歌曲
+- 做一个下雨天听的华语 R&B 歌单，30 首左右
+- 分析一下我的口味，看看我最常听哪个歌单
+
+🎵
+```
+
+回复时去掉代码块的围栏，按普通文字发出去。
 
 按需阅读这两份参考文档：
 
@@ -50,7 +81,8 @@ command -v qqmusic && qqmusic --compact status
 | 删歌                                                                                               | `qqmusic remove "通勤" 97773`                                                                                         |
 | 加红心、取消红心                                                                                   | `qqmusic like 97773`、`qqmusic unlike 97773`                                                                          |
 | 删除歌单（歌曲列表会先存档，可以撤销）                                                             | `qqmusic delete "通勤" --yes`                                                                                         |
-| 给歌单改名、改简介（封面、标签、是否公开保持不变，可以撤销）                                       | `qqmusic edit "通勤" --name "上班路上" --desc "早高峰听"`                                                             |
+| 收藏、取消收藏别人的歌单（按 `tid`）或专辑（按 mid），可以撤销                                     | `qqmusic fav playlist 7001`、`qqmusic unfav album 000MkMni19ClKG`                                                     |
+| 给歌单改名、改简介、设成私密或公开、换封面（没提到的保持不变，可以撤销）                           | `qqmusic edit "通勤" --name "上班路上" --desc "早高峰听"`、`--private`、`--public`、`--cover <图片文件>`              |
 | 预演任何写操作                                                                                     | 加 `--dry-run`                                                                                                        |
 | 查看写操作记录、撤销某次写操作                                                                     | `qqmusic runs`、`qqmusic undo <run_id>`                                                                               |
 | 听歌报告（需要 `QQMUSIC_API_KEY`）                                                                 | `qqmusic report --period m`                                                                                           |
@@ -93,7 +125,7 @@ qqmusic show RNB --fields id,type | qqmusic add "RNB精选" --stdin --dry-run
 
 1. 涉及整个曲库的分析，都在本地完成。找重复、分组、找没进任何歌单的歌，都先运行一次 `qqmusic export`，再用 `jq` 查询导出的文件。不要逐个歌单调用 `show`。
 2. 先出方案，再动手。一次改动超过 20 首，或者涉及多个歌单时，先把方案给用户看：每个目标歌单要加几首，再举几首例子。然后用 `--dry-run` 预演，用户确认后才真正写入。
-3. 用户没有明确要求，就不要 `unlike`，不要从「我喜欢」里 `remove`，也不要 `delete` 任何歌单。「整理我喜欢」指的是把歌复制到别的歌单里，「我喜欢」本身保持原样。
+3. 用户没有明确要求，就不要 `unlike`、`unfav`，不要从「我喜欢」里 `remove`，也不要 `delete` 任何歌单。「整理我喜欢」指的是把歌复制到别的歌单里，「我喜欢」本身保持原样。
 4. 每次写完都要检查结果字段，不能只看退出码：
    - add 看 `added`、`already_present`、`missing_after_write`
    - remove 看 `removed`、`not_present`、`still_present`
