@@ -18,6 +18,8 @@ WRITE_BATCH = 20  # songs per add/remove call; conservative, not a documented se
 TRACK_BATCH = 50  # ids per CgiGetTrackInfo call
 PAGE_SIZE = 500  # songs per uniform_get_Dissinfo page; the server returned 285 songs in one page
 FOLLOW_PAGE = 100  # largest page size observed to work for GetFollowSingerList
+INFO_BATCH = 10  # playlist info reads per musicu.fcg request; 12 in one request worked live
+ALBUM_PAGE = 50  # songs per GetAlbumSongList call; the web asks for 10
 FOLLOW_METHODS = {"singers": "GetFollowSingerList", "users": "GetFollowUserList"}
 # What y.qq.com's playlist editor sends: every editable field at once. Values we do not change are
 # read back first and sent unchanged, so the cover, tags and visibility survive a rename.
@@ -125,7 +127,7 @@ class Library:
             data = self.client.rpc(
                 "music.srfDissInfo.aiDissInfo",
                 "uniform_get_Dissinfo",
-                {"disstid": tid, "song_begin": begin, "song_num": want, "ctx": 1},
+                {"disstid": tid, "song_begin": begin, "song_num": want, "ctx": 1, "tag": 1},
             )
             if data.get("code") not in (0, None):
                 raise ApiError(
@@ -148,6 +150,66 @@ class Library:
             "offset": offset,
             "count": len(songs),
             "complete": complete,
+            "songs": songs,
+        }
+
+    def playlist_extras(self, tids: Iterable[int]) -> dict[int, dict[str, Any]]:
+        """Play count, description and tag names per playlist tid, a few playlists per request.
+
+        `song_num` must stay 1: the server reads 0 as "every song".
+        """
+        out: dict[int, dict[str, Any]] = {}
+        for chunk in _chunks(list(tids), INFO_BATCH):
+            calls = [
+                (
+                    "music.srfDissInfo.aiDissInfo",
+                    "uniform_get_Dissinfo",
+                    {"disstid": tid, "song_begin": 0, "song_num": 1, "tag": 1},
+                )
+                for tid in chunk
+            ]
+            for tid, data in zip(chunk, self.client.rpc_many(calls), strict=True):
+                info = models.playlist_info(data.get("dirinfo") or {})
+                out[tid] = {"listen_count": info["listen_count"], "desc": info["desc"], "tags": info["tags"]}
+        return out
+
+    def album(self, mid: str, *, limit: int | None = None) -> dict[str, Any]:
+        """Album details and its songs (`GetAlbumDetail` + `GetAlbumSongList`, as y.qq.com does)."""
+        songs: list[dict[str, Any]] = []
+        detail: dict[str, Any] = {}
+        total = None
+        while limit is None or len(songs) < limit:
+            want = ALBUM_PAGE if limit is None else min(ALBUM_PAGE, limit - len(songs))
+            page_call = (
+                "music.musichallAlbum.AlbumSongList",
+                "GetAlbumSongList",
+                {"albumid": 0, "albumMid": mid, "begin": len(songs), "num": want, "order": 2},
+            )
+            try:
+                if not detail:
+                    detail, page = self.client.rpc_many(
+                        [("music.musichallAlbum.AlbumInfoServer", "GetAlbumDetail", {"albumMid": mid}), page_call]
+                    )
+                else:
+                    page = self.client.rpc_many([page_call])[0]
+            except AuthError as exc:
+                # Both calls work logged out; for them 104400 means "no such album" (checked live).
+                if exc.code == 104400:
+                    raise UsageError(f"no album with mid {mid!r}") from exc
+                raise
+            total = page.get("totalNum", total)
+            items = [x.get("songInfo") or {} for x in page.get("songList") or []]
+            songs.extend(models.song(s) for s in items if s.get("id"))
+            if not items or (total is not None and len(songs) >= total):
+                break
+        if not (detail.get("basicInfo") or {}).get("albumMid"):
+            raise UsageError(f"no album with mid {mid!r}")
+        expected = total if limit is None or total is None else min(limit, total)
+        return {
+            "album": models.album(detail, total),
+            "total": total,
+            "count": len(songs),
+            "complete": expected is None or len(songs) >= expected,
             "songs": songs,
         }
 
@@ -546,13 +608,22 @@ class Library:
     def export(self) -> dict[str, Any]:
         lists = []
         for p in self.playlists(refresh=True):
-            result = self.playlist_songs(p["tid"]) if p["song_count"] else {"songs": [], "complete": True, "total": 0}
-            lists.append({**p, "complete": result["complete"], "songs": result["songs"]})
+            if p["song_count"]:
+                result = self.playlist_songs(p["tid"])
+                info = result["playlist"]
+                extras = {"listen_count": info["listen_count"], "desc": info["desc"]}
+            else:
+                result = {"songs": [], "complete": True}
+                extras = self.playlist_extras([p["tid"]])[p["tid"]]
+                extras.pop("tags")
+            lists.append({**p, **extras, "complete": result["complete"], "songs": result["songs"]})
+        faved = self.faved_playlists()
+        faved_extras = self.playlist_extras(p["tid"] for p in faved)
         return {
             "exported_at": int(time.time()),
             "uin": self.uin,
             "playlists": lists,
-            "faved_playlists": self.faved_playlists(),
+            "faved_playlists": [{**p, **faved_extras.get(p["tid"], {})} for p in faved],
             "faved_albums": self.faved_albums(),
             "following_singers": self.following("singers"),
         }

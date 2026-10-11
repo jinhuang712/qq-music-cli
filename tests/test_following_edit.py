@@ -11,11 +11,13 @@ def test_following_singers_pages_and_normalises(lib, server):
     assert len(singers) == 250
     assert [c["Size"] for c in server.calls_to("GetFollowSingerList")] == [100, 100, 100]
     assert [c["From"] for c in server.calls_to("GetFollowSingerList")] == [0, 100, 200]
-    assert singers[0] == {"name": "Singer 0", "mid": "SMID0000000000", "euin": None, "fans": 1000}
+    assert singers[0] == {"name": "Singer 0", "mid": "SMID0000000000", "euin": None, "fans": 1000, "avatar": None}
 
 
 def test_following_users_and_bad_kind(lib):
-    assert lib.following("users") == [{"name": "Some User", "mid": None, "euin": "user_euin_1", "fans": 3}]
+    assert lib.following("users") == [
+        {"name": "Some User", "mid": None, "euin": "user_euin_1", "fans": 3, "avatar": None}
+    ]
     with pytest.raises(UsageError):
         lib.following("albums")
 

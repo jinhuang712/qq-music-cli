@@ -84,6 +84,14 @@ def ok(*datas: Any, code: int = 0) -> httpx.Response:
 # -- fake server ----------------------------------------------------------------------------------
 
 
+class SlotError(Exception):
+    """Raised by a fake RPC method to answer its slot with a non-zero code."""
+
+    def __init__(self, code: int) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 class FakeQQMusic:
     """In-memory playlists + song catalogue behind the same RPC names the library uses."""
 
@@ -105,6 +113,10 @@ class FakeQQMusic:
                 "interval": 200,
                 "time_public": "2020-01-01",
                 "pay": {"pay_play": 0},
+                "bpm": 90 if i % 2 else 0,
+                "mv": {"vid": f"vid{sid}" if i % 3 == 0 else ""},
+                "file": {"size_320mp3": 1, "size_flac": 1 if i % 2 else 0, "size_hires": 0, "size_dolby": 0},
+                "index_album": i % 12 + 1,
             }
         self.playlists: list[dict[str, Any]] = []
         self._next_dir = 301
@@ -116,6 +128,17 @@ class FakeQQMusic:
             {"Name": f"Singer {i}", "MID": f"SMID{i:010d}", "FanNum": 1000 + i} for i in range(250)
         ]
         self.followed_users = [{"Name": "Some User", "MID": "", "EncUin": "user_euin_1", "FanNum": 3}]
+        self.faved = [{"tid": 9001, "name": "Someone's Mix", "nickname": "someone", "songnum": 30, "logo": "http://x"}]
+        # public playlists of other users, readable by tid
+        self.public = {
+            9001: {
+                "title": "Someone's Mix",
+                "listennum": 4820,
+                "desc": "a long story",
+                "tag": [{"id": 8, "name": "R&B"}],
+            }
+        }
+        self.albums = {"ALBUM000000001": [100_000 + i for i in range(60)]}
 
     # -- state helpers
     def add_playlist(
@@ -162,8 +185,11 @@ class FakeQQMusic:
             fn = getattr(self, "rpc_" + req["method"], None)
             if fn is None:
                 out[key] = {"code": 404, "data": {}}
-            else:
+                continue
+            try:
                 out[key] = {"code": 0, "data": fn(req["param"])}
+            except SlotError as exc:
+                out[key] = {"code": exc.code, "data": {}}
         return httpx.Response(200, json=out)
 
     # -- rpc methods
@@ -178,6 +204,7 @@ class FakeQQMusic:
                     "dirShow": 1,
                     "desc": "",
                     "strTagIdList": ",".join(str(t["id"]) for t in pl["tags"]),
+                    "picUrl": pl["picurl"],
                 }
                 for pl in self.playlists
             ]
@@ -202,14 +229,29 @@ class FakeQQMusic:
                 },
             }
         pl = next((x for x in self.playlists if x["tid"] == p["disstid"]), None)
+        if pl is None and p["disstid"] in self.public:
+            info = self.public[p["disstid"]]
+            tags = info["tag"] if p.get("tag") == 1 else []
+            return {"code": 0, "dirinfo": {"id": p["disstid"], **info, "tag": tags}, "songlist": [], "hasmore": 0}
         if pl is None:
             return {"code": 1, "msg": "no such playlist"}
         visible = pl["songs"] if self.max_visible is None else pl["songs"][: self.max_visible]
-        begin, num = p["song_begin"], p["song_num"]
+        begin, num = p["song_begin"], p["song_num"] or len(visible)  # 0 means every song, as on the server
         page = visible[begin : begin + num]
         return {
             "code": 0,
-            "dirinfo": {"id": pl["tid"], "dirid": pl["dirId"], "title": pl["dirName"], "songnum": len(pl["songs"])},
+            "dirinfo": {
+                "id": pl["tid"],
+                "dirid": pl["dirId"],
+                "title": pl["dirName"],
+                "songnum": len(pl["songs"]),
+                "listennum": 10 * len(pl["songs"]),
+                "desc": pl["desc"],
+                "picurl": pl["picurl"],
+                # names only when asked for, like the real server
+                "tag": pl["tags"] if p.get("tag") == 1 else [],
+                "vec_tagid": [t["id"] for t in pl["tags"]],
+            },
             "total_song_num": len(pl["songs"]),
             "songlist": [self.catalog[i] for i in page],
             "hasmore": 1 if begin + len(page) < len(visible) else 0,
@@ -280,7 +322,31 @@ class FakeQQMusic:
         }
 
     def rpc_CgiGetPlaylistFavInfo(self, p):
-        return {"v_list": [], "hasmore": 0}
+        return {"v_list": self.faved, "hasmore": 0}
+
+    def rpc_get_song_detail_yqq(self, p):
+        track = next(s for s in self.catalog.values() if s["mid"] == p["song_mid"])
+        return {
+            "track_info": track,
+            "info": {"genre": {"content": [{"value": "Pop"}]}, "intro": {"content": [{"value": "About it."}]}},
+            "extras": {"transname": "Translated"},
+        }
+
+    def rpc_GetAlbumDetail(self, p):
+        if p["albumMid"] not in self.albums:
+            raise SlotError(104400)  # what the server answers for an unknown album
+        return {
+            "basicInfo": {"albumMid": p["albumMid"], "albumID": 77, "albumName": "Album 77", "desc": "x" * 3000},
+            "singer": {"singerList": [{"singerID": 1, "mid": "singer1", "name": "Artist A"}]},
+            "company": {"name": "Label"},
+        }
+
+    def rpc_GetAlbumSongList(self, p):
+        if p["albumMid"] not in self.albums:
+            raise SlotError(104400)
+        ids = self.albums[p["albumMid"]]
+        page = ids[p["begin"] : p["begin"] + p["num"]]
+        return {"totalNum": len(ids), "songList": [{"songInfo": self.catalog[i]} for i in page]}
 
     def rpc_CgiGetAlbumFavInfo(self, p):
         return {"v_list": [], "hasmore": 0}

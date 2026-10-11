@@ -12,19 +12,20 @@ y.qq.com 网页自己现在用的是另一个加密并签名的接口。但截�
 
 以下接口都在真实账号上验证过：
 
-| 能力             | module / method                                                                                           |
-| ---------------- | --------------------------------------------------------------------------------------------------------- |
-| 列出歌单         | `music.musicasset.PlaylistBaseRead` / `GetPlaylistByUin`                                                  |
-| 读歌单           | `music.srfDissInfo.aiDissInfo` / `uniform_get_Dissinfo`                                                   |
-| 建歌单、删歌单   | `music.musicasset.PlaylistBaseWrite` / `AddPlaylist`、`DelPlaylist`                                       |
-| 歌单标签名       | `music.musicasset.PlaylistTag` / `getPlaylistTag`                                                         |
-| 改名、改简介     | `music.musicasset.PlaylistBaseWrite` / `EditPlaylist`                                                     |
-| 加歌、删歌       | `music.musicasset.PlaylistDetailWrite` / `AddSonglist`、`DelSonglist`                                     |
-| 歌曲元数据       | `music.trackInfo.UniformRuleCtrl` / `CgiGetTrackInfo`、`music.pf_song_detail_svr` / `get_song_detail_yqq` |
-| 收藏的歌单和专辑 | `music.musicasset.PlaylistFavRead`、`music.musicasset.AlbumFavRead`                                       |
-| 关注的歌手、用户 | `music.concern.RelationList` / `GetFollowSingerList`、`GetFollowUserList`                                 |
-| 搜索             | `music.search.SearchCgiService` / `DoSearchForQQMusicDesktop`                                             |
-| 歌词             | `c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg`                                                       |
+| 能力             | module / method                                                                                                      |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------- |
+| 列出歌单         | `music.musicasset.PlaylistBaseRead` / `GetPlaylistByUin`                                                             |
+| 读歌单           | `music.srfDissInfo.aiDissInfo` / `uniform_get_Dissinfo`                                                              |
+| 建歌单、删歌单   | `music.musicasset.PlaylistBaseWrite` / `AddPlaylist`、`DelPlaylist`                                                  |
+| 歌单标签名       | `music.musicasset.PlaylistTag` / `getPlaylistTag`                                                                    |
+| 改名、改简介     | `music.musicasset.PlaylistBaseWrite` / `EditPlaylist`                                                                |
+| 加歌、删歌       | `music.musicasset.PlaylistDetailWrite` / `AddSonglist`、`DelSonglist`                                                |
+| 歌曲元数据       | `music.trackInfo.UniformRuleCtrl` / `CgiGetTrackInfo`、`music.pf_song_detail_svr` / `get_song_detail_yqq`            |
+| 收藏的歌单和专辑 | `music.musicasset.PlaylistFavRead`、`music.musicasset.AlbumFavRead`                                                  |
+| 专辑信息和曲目   | `music.musichallAlbum.AlbumInfoServer` / `GetAlbumDetail`、`music.musichallAlbum.AlbumSongList` / `GetAlbumSongList` |
+| 关注的歌手、用户 | `music.concern.RelationList` / `GetFollowSingerList`、`GetFollowUserList`                                            |
+| 搜索             | `music.search.SearchCgiService` / `DoSearchForQQMusicDesktop`                                                        |
+| 歌词             | `c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg`                                                                  |
 
 ## 登录
 

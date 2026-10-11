@@ -80,7 +80,8 @@ jq '{"0":"国语","1":"粤语","3":"日语","4":"韩语","5":"英语","9":"纯�
 
 典型说法：「做一个下雨天听的华语 R&B 歌单，30 首左右」。
 
-1. 把描述拆成 3 到 6 个搜索词：歌手名、你知道合适的歌名、流派词。逐个运行 `qqmusic search "<搜索词>" --limit 20 --fields id,type,name,artist,album,release_date`。
+1. 把描述拆成 3 到 6 个搜索词：歌手名、你知道合适的歌名、流派词。逐个运行 `qqmusic search "<搜索词>" --limit 20 --fields +release_date`。
+   - 描述里提到节奏（跑步、助眠、慢歌）时，加上 `bpm`：`--fields +release_date,bpm`。很多歌没有 `bpm`，没有的不要直接排除，按歌名和歌手判断。
 2. 还可以从用户自己的口味里找歌：「我喜欢」或相关歌单里符合描述的歌。把用户熟悉的歌和新歌混在一起，通常比只用搜索结果效果好。
 3. 筛一遍候选：
    - 去掉重复的版本。除非用户想要现场版，否则留录音室版。
@@ -110,6 +111,12 @@ jq '{"0":"国语","1":"粤语","3":"日语","4":"韩语","5":"英语","9":"纯�
   ```sh
   qqmusic create "<歌单名>"
   qqmusic show <tid> --fields id,type | qqmusic add "<歌单名>" --stdin
+  ```
+
+- **把整张专辑加进歌单**：专辑 mid 从 `qqmusic search "<专辑名>" --type album` 或歌曲的 `album.mid` 里找。
+
+  ```sh
+  qqmusic album <专辑 mid> --fields id,type | qqmusic add "<歌单名>" --stdin
   ```
 
 - **改名、改简介**：**（写入）** `qqmusic edit "<歌单名>" --name "<新名字>" --desc "<新简介>"`。`tid` 不变，封面、标签、是否公开都保持原样，`qqmusic undo <run_id>` 可以改回去。
@@ -193,6 +200,9 @@ jq '[.playlists[] | select(.dir_id == 201) | .songs[].singers[].name]
 # 用户给自建歌单打的标签，按歌单里的歌曲数加权
 qqmusic playlists | jq '[.[] | .song_count as $n | .tags[] | {tag: ., n: $n}]
     | group_by(.tag) | map({tag: .[0].tag, playlists: length, songs: (map(.n) | add)}) | sort_by(-.songs)'
+
+# 哪个歌单播放得最多（播放量是所有人的，见 concepts.md）
+qqmusic playlists --fields name,song_count,listen_count | jq 'sort_by(-.listen_count) | .[:10]'
 
 # 更省事的做法：qqmusic following --saved 直接给出每位关注歌手的 liked_songs / saved_songs
 

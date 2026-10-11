@@ -10,6 +10,32 @@ from .errors import UsageError
 
 LIKED_DIR_ID = 201
 MID_RE = re.compile(r"^[0-9A-Za-z]{14}$")
+COVER_URL = "https://y.gtimg.cn/music/photo_new/T002R300x300M000{mid}.jpg"  # album cover by album mid
+# Audio files a song has, judged by which file sizes are non-zero.
+QUALITY_FILES = (("320k", "size_320mp3"), ("flac", "size_flac"), ("hires", "size_hires"), ("dolby", "size_dolby"))
+
+# Field sets for `--fields`. Model functions return every field; commands print DEFAULT unless asked.
+# Lists are what costs tokens, so defaults stay small and anything else is opt-in.
+SONG_DEFAULT = ("id", "mid", "type", "name", "artist", "album", "duration")
+SONG_FIELDS = (
+    *SONG_DEFAULT,
+    *("title", "subtitle", "singers", "release_date", "language", "genre", "vip"),
+    *("bpm", "mv", "qualities", "track_no", "cover"),
+)
+# Only `qqmusic song` has these: each needs one more call per song (`get_song_detail_yqq`).
+SONG_DETAIL_FIELDS = ("genre_name", "language_name", "company", "publish_time", "intro", "trans_name")
+SONG_DETAIL_DEFAULT = SONG_DETAIL_FIELDS[:4]  # what `--detail` adds
+PLAYLIST_DEFAULT = ("dir_id", "tid", "name", "song_count", "liked", "public", "tags", "created_at", "updated_at")
+# Read one `uniform_get_Dissinfo` call per playlist, so they are fetched only when asked for.
+PLAYLIST_EXTRA_FIELDS = ("listen_count", "desc")
+PLAYLIST_FIELDS = (*PLAYLIST_DEFAULT, "cover", *PLAYLIST_EXTRA_FIELDS)
+FAVED_PLAYLIST_DEFAULT = ("tid", "name", "creator", "song_count", "faved_at")
+FAVED_PLAYLIST_EXTRA_FIELDS = ("listen_count", "desc", "tags")
+FAVED_PLAYLIST_FIELDS = (*FAVED_PLAYLIST_DEFAULT, "updated_at", "cover", *FAVED_PLAYLIST_EXTRA_FIELDS)
+FAVED_ALBUM_DEFAULT = ("id", "mid", "name", "artist", "song_count", "release_date", "faved_at")
+FAVED_ALBUM_FIELDS = (*FAVED_ALBUM_DEFAULT, "cover")
+FOLLOWED_DEFAULT = ("name", "mid", "euin", "fans")
+FOLLOWED_FIELDS = (*FOLLOWED_DEFAULT, "avatar")
 
 
 def _singers(raw: Any) -> list[dict[str, Any]]:
@@ -44,6 +70,11 @@ def song(raw: dict[str, Any]) -> dict[str, Any]:
         "language": raw.get("language"),
         "genre": raw.get("genre"),
         "vip": bool(pay.get("pay_play")),
+        "bpm": raw.get("bpm") or None,
+        "mv": (raw.get("mv") or {}).get("vid") or None,
+        "qualities": [name for name, key in QUALITY_FILES if (raw.get("file") or {}).get(key)],
+        "track_no": raw.get("index_album") or None,
+        "cover": _cover(album.get("mid")),
     }
 
 
@@ -66,11 +97,16 @@ def playlist(raw: dict[str, Any], tag_names: dict[int, str] | None = None) -> di
         "tags": [names.get(i, str(i)) for i in ids],
         "created_at": raw.get("createTime"),
         "updated_at": raw.get("updateTime"),
+        "cover": raw.get("picUrl") or None,
     }
 
 
 def playlist_info(dirinfo: dict[str, Any]) -> dict[str, Any]:
-    """`dirinfo` block from `uniform_get_Dissinfo`; works for any public playlist too."""
+    """`dirinfo` block from `uniform_get_Dissinfo`; works for any public playlist too.
+
+    Tag names come only when the call asks for them (`tag: 1`); otherwise `tag` is empty.
+    """
+    tags = [t.get("name") for t in dirinfo.get("tag") or [] if isinstance(t, dict) and t.get("name")]
     return {
         "dir_id": dirinfo.get("dirid"),
         "tid": dirinfo.get("id"),
@@ -78,7 +114,9 @@ def playlist_info(dirinfo: dict[str, Any]) -> dict[str, Any]:
         "song_count": dirinfo.get("songnum"),
         "creator": dirinfo.get("host_nick") or None,
         "desc": dirinfo.get("desc") or None,
-        "tags": dirinfo.get("vec_tagname") or [],
+        "tags": tags or dirinfo.get("vec_tagname") or [],
+        "listen_count": dirinfo.get("listennum"),
+        "cover": dirinfo.get("picurl") or None,
         "created_at": dirinfo.get("ctime"),
         "updated_at": dirinfo.get("mtime"),
     }
@@ -91,6 +129,8 @@ def faved_playlist(raw: dict[str, Any]) -> dict[str, Any]:
         "creator": raw.get("nickname") or None,
         "song_count": raw.get("songnum"),
         "faved_at": raw.get("orderTime"),
+        "updated_at": raw.get("updateTime"),
+        "cover": raw.get("logo") or None,
     }
 
 
@@ -104,6 +144,7 @@ def faved_album(raw: dict[str, Any]) -> dict[str, Any]:
         "song_count": raw.get("songnum"),
         "release_date": _date(raw.get("pubtime")),
         "faved_at": raw.get("ordertime"),
+        "cover": raw.get("logo") or None,
     }
 
 
@@ -114,6 +155,7 @@ def followed(raw: dict[str, Any]) -> dict[str, Any]:
         "mid": raw.get("MID") or None,
         "euin": raw.get("EncUin") or None,
         "fans": raw.get("FanNum"),
+        "avatar": raw.get("AvatarUrl") or None,
     }
 
 
@@ -131,8 +173,43 @@ def song_detail(raw: dict[str, Any]) -> dict[str, Any]:
         language_name=", ".join(values("lan")) or None,
         company=", ".join(values("company")) or None,
         publish_time=", ".join(values("pub_time")) or None,
+        intro="\n".join(values("intro")) or None,
+        trans_name=(raw.get("extras") or {}).get("transname") or None,
     )
     return out
+
+
+def album(detail: dict[str, Any], total: int | None = None) -> dict[str, Any]:
+    """`AlbumInfoServer.GetAlbumDetail`; `total` is the song count from `GetAlbumSongList`."""
+    basic = detail.get("basicInfo") or {}
+    singers = [
+        {"id": s.get("singerID"), "mid": s.get("mid"), "name": s.get("name")}
+        for s in (detail.get("singer") or {}).get("singerList") or []
+        if isinstance(s, dict)
+    ]
+    return {
+        "id": basic.get("albumID"),
+        "mid": basic.get("albumMid"),
+        "name": basic.get("albumName"),
+        "trans_name": basic.get("tranName") or None,
+        "artist": " / ".join(s["name"] for s in singers if s.get("name")),
+        "singers": singers,
+        "release_date": basic.get("publishDate") or None,
+        "type": basic.get("albumType") or None,
+        "language": basic.get("language") or None,
+        "genre": basic.get("genre") or basic.get("genreNew") or None,
+        "company": (detail.get("company") or {}).get("name") or None,
+        "song_count": total,
+        "labels": [x for x in basic.get("recLabels") or [] if x],
+        "awards": [a.get("name") for a in basic.get("awards") or [] if isinstance(a, dict) and a.get("name")],
+        "rec_text": basic.get("recText") or None,
+        "desc": basic.get("desc") or None,
+        "cover": _cover(basic.get("albumMid")),
+    }
+
+
+def _cover(album_mid: Any) -> str | None:
+    return COVER_URL.format(mid=album_mid) if album_mid else None
 
 
 def _date(value: Any) -> str | None:
@@ -148,6 +225,20 @@ def project(item: dict[str, Any], fields: list[str] | None) -> dict[str, Any]:
     if not fields:
         return item
     return {f: item.get(f) for f in fields}
+
+
+def select_fields(spec: str | None, default: tuple[str, ...], available: tuple[str, ...]) -> list[str]:
+    """Parse `--fields`: nothing = `default`; `a,b` = exactly these; `+a,b` = default plus these; `all`."""
+    spec = (spec or "").strip()
+    if not spec:
+        return list(default)
+    if spec == "all":
+        return list(available)
+    names = [f.strip() for f in spec.removeprefix("+").split(",") if f.strip()]
+    unknown = [n for n in names if n not in available]
+    if unknown:
+        raise UsageError(f"unknown field(s): {', '.join(unknown)}. Available: {', '.join(available)}")
+    return list(dict.fromkeys([*default, *names])) if spec.startswith("+") else names
 
 
 # -- song references ----------------------------------------------------------------------------

@@ -14,13 +14,13 @@ from typing import Any
 
 import typer
 
-from . import __version__, login as login_flows, official
+from . import __version__, login as login_flows, models, official
 from .api import SEARCH_TYPES, Library
 from .auth import CredentialStore, credential_from_cookies, parse_cookie_text
 from .client import Client
 from .errors import AuthError, QQMusicError, UsageError
 from .login_ui import LoginPage
-from .models import project, read_song_refs, parse_song_ref
+from .models import project, read_song_refs, parse_song_ref, select_fields
 from .paths import data_dir, exports_dir
 from .runs import RunLog, list_runs, load_run, mark_undone
 
@@ -49,6 +49,13 @@ def note(event: str, **fields: Any) -> None:
 
 def _fields(spec: str | None) -> list[str] | None:
     return [f.strip() for f in spec.split(",") if f.strip()] if spec else None
+
+
+FIELDS_HELP = "Fields to print: `a,b` exactly these, `+a,b` the defaults plus these, `all` everything."
+
+
+def _fields_option(default: str = "") -> Any:
+    return typer.Option(None, help=f"{FIELDS_HELP} {default}".strip())
 
 
 def _stdin_text(use_stdin: bool) -> str | None:
@@ -208,9 +215,17 @@ def refresh() -> None:
 
 
 @app.command()
-def playlists() -> None:
+def playlists(
+    fields: str | None = _fields_option("listen_count and desc cost one extra request per 10 playlists."),
+) -> None:
     """List your own playlists (including 我喜欢, dir_id 201)."""
-    emit(_library().playlists())
+    keep = select_fields(fields, models.PLAYLIST_DEFAULT, models.PLAYLIST_FIELDS)
+    lib = _library()
+    lists = lib.playlists()
+    if set(keep) & set(models.PLAYLIST_EXTRA_FIELDS):
+        extras = lib.playlist_extras(p["tid"] for p in lists)
+        lists = [{**extras.get(p["tid"], {}), **p} for p in lists]
+    emit([project(p, keep) for p in lists])
 
 
 @app.command()
@@ -218,35 +233,43 @@ def show(
     playlist: str = typer.Argument(..., help="Name, dir_id, tid, or `liked`. Any public tid works too."),
     offset: int = typer.Option(0, help="Skip this many songs."),
     limit: int | None = typer.Option(None, help="Return at most this many songs (default: all)."),
-    fields: str | None = typer.Option(None, help="Comma-separated song fields to keep, e.g. id,type,name,artist."),
+    fields: str | None = _fields_option("Applies to the songs, e.g. +release_date,bpm."),
 ) -> None:
-    """List the songs in a playlist."""
+    """List the songs in a playlist, after the playlist's own details."""
+    keep = select_fields(fields, models.SONG_DEFAULT, models.SONG_FIELDS)
     lib = _library()
     pl = lib.resolve_playlist(playlist, own=False)
     result = lib.playlist_songs(pl["tid"], offset=offset, limit=limit)
-    if pl.get("dir_id"):  # own playlist: the song read leaves tags empty, the list read has them
-        result["playlist"]["tags"] = pl.get("tags", [])
-    result["songs"] = [project(s, _fields(fields)) for s in result["songs"]]
+    result["songs"] = [project(s, keep) for s in result["songs"]]
     emit(result)
 
 
 @app.command()
 def liked(
     limit: int | None = typer.Option(None, help="Return at most this many songs (default: all)."),
-    fields: str | None = typer.Option(None, help="Comma-separated song fields to keep."),
+    fields: str | None = _fields_option("Applies to the songs."),
 ) -> None:
     """List the songs in 我喜欢."""
     show(playlist="liked", offset=0, limit=limit, fields=fields)
 
 
 @app.command()
-def faved(kind: str = typer.Argument("playlists", help="`playlists` or `albums`.")) -> None:
+def faved(
+    kind: str = typer.Argument("playlists", help="`playlists` or `albums`."),
+    fields: str | None = _fields_option("For playlists, listen_count, desc and tags cost extra requests."),
+) -> None:
     """List playlists or albums you have collected (收藏)."""
     lib = _library()
     if kind.startswith("playlist"):
-        emit(lib.faved_playlists())
+        keep = select_fields(fields, models.FAVED_PLAYLIST_DEFAULT, models.FAVED_PLAYLIST_FIELDS)
+        lists = lib.faved_playlists()
+        if set(keep) & set(models.FAVED_PLAYLIST_EXTRA_FIELDS):
+            extras = lib.playlist_extras(p["tid"] for p in lists)
+            lists = [{**p, **extras.get(p["tid"], {})} for p in lists]
+        emit([project(p, keep) for p in lists])
     elif kind.startswith("album"):
-        emit(lib.faved_albums())
+        keep = select_fields(fields, models.FAVED_ALBUM_DEFAULT, models.FAVED_ALBUM_FIELDS)
+        emit([project(a, keep) for a in lib.faved_albums()])
     else:
         raise UsageError("kind must be `playlists` or `albums`")
 
@@ -257,13 +280,15 @@ def following(
     saved: bool = typer.Option(
         False, "--saved", help="Add liked_songs / saved_songs: how many of your saved songs feature each singer."
     ),
-    fields: str | None = typer.Option(None, help="Comma-separated fields to keep, e.g. name,fans."),
+    fields: str | None = _fields_option(),
 ) -> None:
     """List the singers (or users) you follow (关注)."""
+    counts = ("liked_songs", "saved_songs") if saved else ()
+    keep = select_fields(fields, (*models.FOLLOWED_DEFAULT, *counts), (*models.FOLLOWED_FIELDS, *counts))
     lib = _library()
     key = "singers" if kind.startswith("singer") else "users" if kind.startswith("user") else kind
     people = lib.following_with_saved(key) if saved else lib.following(key)
-    emit([project(x, _fields(fields)) for x in people])
+    emit([project(x, keep) for x in people])
 
 
 @app.command()
@@ -271,17 +296,25 @@ def song(
     songs: list[str] = typer.Argument(None, help="Song ids, id:type pairs or mids."),
     stdin: bool = typer.Option(False, "--stdin", help="Also read song refs from stdin."),
     detail: bool = typer.Option(
-        False, "--detail", help="Add genre/language/company as text (one extra call per song)."
+        False,
+        "--detail",
+        help="Add genre_name, language_name, company and publish_time (one extra call per song). "
+        "Asking for any of those, or intro or trans_name, in --fields does the same.",
     ),
-    fields: str | None = typer.Option(None, help="Comma-separated fields to keep."),
+    fields: str | None = _fields_option(),
 ) -> None:
     """Show song metadata (album, duration, release date, language, genre)."""
     refs = read_song_refs(songs or [], _stdin_text(stdin))
     if not refs:
         raise UsageError("give at least one song")
+    default = (*models.SONG_DEFAULT, *(models.SONG_DETAIL_DEFAULT if detail else ()))
+    keep = select_fields(fields, default, (*models.SONG_FIELDS, *models.SONG_DETAIL_FIELDS))
     lib = _library()
-    result = lib.song_details(refs) if detail else lib.tracks(refs)
-    emit([project(s, _fields(fields)) for s in result])
+    if detail or set(keep) & set(models.SONG_DETAIL_FIELDS):
+        result = lib.song_details(refs)
+    else:
+        result = lib.tracks(refs)
+    emit([project(s, keep) for s in result])
 
 
 @app.command()
@@ -290,11 +323,30 @@ def search(
     type_: str = typer.Option("song", "--type", help=f"One of: {', '.join(SEARCH_TYPES)}."),
     page: int = typer.Option(1, min=1),
     limit: int = typer.Option(20, min=1, max=50),
-    fields: str | None = typer.Option(None, help="Comma-separated fields to keep."),
+    fields: str | None = _fields_option("Song results have the same fields as `show`."),
 ) -> None:
     """Search the QQ Music catalogue."""
+    if type_ in ("song", "lyric"):
+        keep: list[str] | None = select_fields(fields, models.SONG_DEFAULT, models.SONG_FIELDS)
+    else:
+        keep = _fields(fields)
     result = _library(required=False).search(query, kind=type_, page=page, limit=limit)
-    result["results"] = [project(r, _fields(fields)) for r in result["results"]]
+    result["results"] = [project(r, keep) for r in result["results"]]
+    emit(result)
+
+
+@app.command()
+def album(
+    album_mid: str = typer.Argument(..., metavar="ALBUM_MID", help="The album's 14-character mid."),
+    limit: int | None = typer.Option(None, min=1, help="Return at most this many songs (default: all)."),
+    fields: str | None = _fields_option("Applies to the songs."),
+) -> None:
+    """Show an album (description, type, label, awards) and its songs."""
+    if not models.MID_RE.match(album_mid.strip()):
+        raise UsageError(f"not an album mid: {album_mid!r}")
+    keep = select_fields(fields, models.SONG_DEFAULT, models.SONG_FIELDS)
+    result = _library(required=False).album(album_mid.strip(), limit=limit)
+    result["songs"] = [project(s, keep) for s in result["songs"]]
     emit(result)
 
 

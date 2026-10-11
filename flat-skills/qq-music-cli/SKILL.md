@@ -1,6 +1,6 @@
 ---
 name: qq-music-cli
-description: 用 `qqmusic` 命令行管理用户自己的 QQ 音乐曲库。适用于：查看歌单和「我喜欢」、查看关注的歌手、查歌曲信息、搜索曲库、新建、删除或改名歌单、批量加歌删歌、加红心、导出整个曲库、撤销改动。也适用于整理类的需求，比如把「我喜欢」按语种、流派或心情分进不同歌单，根据一句描述生成歌单，合并、拆分、去重歌单，给曲库做一次体检，分析用户的口味和曲风。
+description: 用 `qqmusic` 命令行管理用户自己的 QQ 音乐曲库。适用于：查看歌单和「我喜欢」、查看关注的歌手、查歌曲和专辑信息、搜索曲库、新建、删除或改名歌单、批量加歌删歌、加红心、导出整个曲库、撤销改动。也适用于整理类的需求，比如把「我喜欢」按语种、流派或心情分进不同歌单，根据一句描述生成歌单，合并、拆分、去重歌单，给曲库做一次体检，分析用户的口味和曲风。
 compatibility: 需要 PATH 里有 `qqmusic` 命令（qq-music-cli，Python 3.11+，用 uv 安装）；钥匙串存储和登录窗口依赖 macOS；需要能访问 y.qq.com。
 ---
 
@@ -30,28 +30,30 @@ command -v qqmusic && qqmusic --compact status
 
 ## 二、命令
 
-| 要做的事                                                                                | 命令                                                                                                                  |
-| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 列出我的歌单，带歌曲数和标签（「我喜欢」的 `dir_id` 是 201）。歌单简介要用 `show` 看    | `qqmusic playlists`                                                                                                   |
-| 看歌单里有哪些歌。歌单可以写名字、`dir_id`、`tid` 或 `liked`，任何公开歌单的 `tid` 也行 | `qqmusic show "RNB" --fields id,type,name,artist,album,duration,release_date`                                         |
-| 看「我喜欢」                                                                            | `qqmusic liked --fields id,type,name,artist`                                                                          |
-| 看收藏的歌单、专辑                                                                      | `qqmusic faved playlists`、`qqmusic faved albums`                                                                     |
-| 看关注的歌手、用户                                                                      | `qqmusic following`、`qqmusic following users`                                                                        |
-| 对比关注的歌手和收藏：每位关注的歌手在「我喜欢」和所有歌单里各有几首                    | `qqmusic following --saved`                                                                                           |
-| 查歌曲信息                                                                              | `qqmusic song 97773 0039MnYb0qxYhV`                                                                                   |
-| 查文字版的流派、语种、唱片公司                                                          | `qqmusic song <歌曲> --detail`（每首歌多一次请求）                                                                    |
-| 搜索                                                                                    | `qqmusic search "晴天 周杰伦" --type song --limit 10`（`--type` 可选 song、singer、album、playlist、mv、lyric、user） |
-| 查歌词                                                                                  | `qqmusic lyrics 0039MnYb0qxYhV`                                                                                       |
-| 导出整个曲库                                                                            | `qqmusic export`，输出 `{"path": ...}`                                                                                |
-| 新建歌单（同名歌单已存在时，直接返回那一个）                                            | `qqmusic create "通勤"`                                                                                               |
-| 加歌（已在歌单里的会跳过，每批 20 首，写完回读核对）                                    | `qqmusic add "通勤" 97773 0039MnYb0qxYhV`                                                                             |
-| 删歌                                                                                    | `qqmusic remove "通勤" 97773`                                                                                         |
-| 加红心、取消红心                                                                        | `qqmusic like 97773`、`qqmusic unlike 97773`                                                                          |
-| 删除歌单（歌曲列表会先存档，可以撤销）                                                  | `qqmusic delete "通勤" --yes`                                                                                         |
-| 给歌单改名、改简介（封面、标签、是否公开保持不变，可以撤销）                            | `qqmusic edit "通勤" --name "上班路上" --desc "早高峰听"`                                                             |
-| 预演任何写操作                                                                          | 加 `--dry-run`                                                                                                        |
-| 查看写操作记录、撤销某次写操作                                                          | `qqmusic runs`、`qqmusic undo <run_id>`                                                                               |
-| 听歌报告（需要 `QQMUSIC_API_KEY`）                                                      | `qqmusic report --period m`                                                                                           |
+| 要做的事                                                                                           | 命令                                                                                                                  |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 列出我的歌单，带歌曲数和标签（「我喜欢」的 `dir_id` 是 201）                                       | `qqmusic playlists`                                                                                                   |
+| 每个歌单的播放量和简介（每 10 个歌单多一次请求）                                                   | `qqmusic playlists --fields name,listen_count,desc`                                                                   |
+| 看歌单里有哪些歌。歌单可以写名字、`dir_id`、`tid` 或 `liked`，任何公开歌单的 `tid` 也行            | `qqmusic show "RNB"`，要发行日期就加 `--fields +release_date`                                                         |
+| 看「我喜欢」                                                                                       | `qqmusic liked`                                                                                                       |
+| 看收藏的歌单、专辑                                                                                 | `qqmusic faved playlists`、`qqmusic faved albums`                                                                     |
+| 看关注的歌手、用户                                                                                 | `qqmusic following`、`qqmusic following users`                                                                        |
+| 对比关注的歌手和收藏：每位关注的歌手在「我喜欢」和所有歌单里各有几首                               | `qqmusic following --saved`                                                                                           |
+| 查歌曲信息                                                                                         | `qqmusic song 97773 0039MnYb0qxYhV`                                                                                   |
+| 查文字版的流派、语种、唱片公司，或者歌曲简介                                                       | `qqmusic song <歌曲> --detail`、`qqmusic song <歌曲> --fields +intro`（每首歌多一次请求）                             |
+| 看专辑：简介、类型、唱片公司、获奖和曲目。专辑 mid 取自歌曲的 `album.mid` 或 `search --type album` | `qqmusic album 000MkMni19ClKG`                                                                                        |
+| 搜索                                                                                               | `qqmusic search "晴天 周杰伦" --type song --limit 10`（`--type` 可选 song、singer、album、playlist、mv、lyric、user） |
+| 查歌词                                                                                             | `qqmusic lyrics 0039MnYb0qxYhV`                                                                                       |
+| 导出整个曲库                                                                                       | `qqmusic export`，输出 `{"path": ...}`                                                                                |
+| 新建歌单（同名歌单已存在时，直接返回那一个）                                                       | `qqmusic create "通勤"`                                                                                               |
+| 加歌（已在歌单里的会跳过，每批 20 首，写完回读核对）                                               | `qqmusic add "通勤" 97773 0039MnYb0qxYhV`                                                                             |
+| 删歌                                                                                               | `qqmusic remove "通勤" 97773`                                                                                         |
+| 加红心、取消红心                                                                                   | `qqmusic like 97773`、`qqmusic unlike 97773`                                                                          |
+| 删除歌单（歌曲列表会先存档，可以撤销）                                                             | `qqmusic delete "通勤" --yes`                                                                                         |
+| 给歌单改名、改简介（封面、标签、是否公开保持不变，可以撤销）                                       | `qqmusic edit "通勤" --name "上班路上" --desc "早高峰听"`                                                             |
+| 预演任何写操作                                                                                     | 加 `--dry-run`                                                                                                        |
+| 查看写操作记录、撤销某次写操作                                                                     | `qqmusic runs`、`qqmusic undo <run_id>`                                                                               |
+| 听歌报告（需要 `QQMUSIC_API_KEY`）                                                                 | `qqmusic report --period m`                                                                                           |
 
 **指定歌曲**有四种写法：
 
@@ -67,6 +69,14 @@ qqmusic show RNB --fields id,type | qqmusic add "RNB精选" --stdin --dry-run
 ```
 
 在 zsh 里一次传多个 id，请走 `--stdin`，因为没加引号的 `$IDS` 变量不会按空格拆开。
+
+**选字段**：列表类的命令默认只输出最常用的几个字段，比如歌曲只有 `id`、`mid`、`type`、`name`、`artist`、`album`、`duration`。`--fields` 有三种写法：
+
+- `--fields id,type`：只要这几个字段
+- `--fields +bpm,release_date`：默认字段再加上这几个
+- `--fields all`：全部字段
+
+写错字段名时，命令以退出码 2 结束，报错里会列出所有可选字段。每种字段的含义见 [references/concepts.md](references/concepts.md)。`show` 的 `playlist` 和 `album` 的 `album` 只是一个对象，总是完整输出，包括简介。
 
 **退出码**：
 
@@ -91,3 +101,4 @@ qqmusic show RNB --fields id,type | qqmusic add "RNB精选" --stdin --dry-run
 6. 控制写入量。CLI 已经做了分批和间隔；一旦遇到退出码 4，立即停下并告诉用户。
 7. 歌单名不能超过 20 个字，这是 y.qq.com 新建歌单时的上限。新建之前先查有没有同名歌单，有就直接用。
 8. 对比歌手（关注了谁、收藏了谁的歌）时，用 `qqmusic following --saved`，它按歌手 `mid` 统计。自己写查询也必须按 `mid` 匹配，不能按名字：关注列表里的名字常带括号译名，和歌曲里的署名对不上。回答时说明比的是「我喜欢」（`liked_songs`）还是所有歌单（`saved_songs`）。
+9. 只取需要的字段。几百首歌的歌单用默认字段或 `+字段`，不要用 `--fields all`。要全部字段做分析时，用 `qqmusic export`：导出文件里有所有字段，`jq` 查询不占上下文。
