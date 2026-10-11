@@ -92,3 +92,16 @@ def test_edit_no_change_and_dry_run_write_nothing(lib, server, new_run):
 
 def test_export_includes_followed_singers(lib):
     assert len(lib.export()["following_singers"]) == 250
+
+
+def test_following_with_saved_counts_by_mid(lib, server):
+    # catalog songs are sung by singer1 + singer2; make the first followed singer one of them
+    server.followed_singers[0]["MID"] = "singer1"
+    server.followed_singers[0]["Name"] = "Artist A (别名)"  # alias must not matter
+    server.by_dir(201)["songs"] = [100_001, 100_002]
+    server.add_playlist("Mix", [100_002, 100_003, 100_004])
+    people = lib.following_with_saved()
+    first = people[0]
+    assert first["liked_songs"] == 2
+    assert first["saved_songs"] == 4  # 100_001..100_004, the shared song counted once
+    assert all(p["saved_songs"] == 0 for p in people[1:])

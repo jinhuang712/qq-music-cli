@@ -37,6 +37,7 @@ command -v qqmusic && qqmusic --compact status
 | 看「我喜欢」                                                                            | `qqmusic liked --fields id,type,name,artist`                                                                          |
 | 看收藏的歌单、专辑                                                                      | `qqmusic faved playlists`、`qqmusic faved albums`                                                                     |
 | 看关注的歌手、用户                                                                      | `qqmusic following`、`qqmusic following users`                                                                        |
+| 对比关注的歌手和收藏：每位关注的歌手在「我喜欢」和所有歌单里各有几首                    | `qqmusic following --saved`                                                                                           |
 | 查歌曲信息                                                                              | `qqmusic song 97773 0039MnYb0qxYhV`                                                                                   |
 | 查文字版的流派、语种、唱片公司                                                          | `qqmusic song <歌曲> --detail`（每首歌多一次请求）                                                                    |
 | 搜索                                                                                    | `qqmusic search "晴天 周杰伦" --type song --limit 10`（`--type` 可选 song、singer、album、playlist、mv、lyric、user） |
@@ -89,3 +90,4 @@ qqmusic show RNB --fields id,type | qqmusic add "RNB精选" --stdin --dry-run
 5. 把每次写操作的 `run_id` 告诉用户，方便用户日后用 `qqmusic undo <run_id>` 撤销。
 6. 控制写入量。CLI 已经做了分批和间隔；一旦遇到退出码 4，立即停下并告诉用户。
 7. 歌单名不能超过 20 个字，这是 y.qq.com 新建歌单时的上限。新建之前先查有没有同名歌单，有就直接用。
+8. 对比歌手（关注了谁、收藏了谁的歌）时，用 `qqmusic following --saved`，它按歌手 `mid` 统计。自己写查询也必须按 `mid` 匹配，不能按名字：关注列表里的名字常带括号译名，和歌曲里的署名对不上。回答时说明比的是「我喜欢」（`liked_songs`）还是所有歌单（`saved_songs`）。

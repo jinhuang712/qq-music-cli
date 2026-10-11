@@ -185,6 +185,33 @@ class Library:
             if not page or not data.get("HasMore"):
                 return out
 
+    def following_with_saved(self, kind: str = "singers") -> list[dict[str, Any]]:
+        """Followed singers, each with how many saved songs feature them, counted by singer mid.
+
+        `liked_songs` counts songs in 我喜欢; `saved_songs` counts distinct songs across all own playlists
+        (我喜欢 included). Names are not compared: followed names often carry translated aliases.
+        """
+        people = self.following(kind)
+        liked: dict[str, int] = {}
+        saved: dict[str, set[tuple[int, int]]] = {}
+        for pl in self.playlists(refresh=True):
+            if not pl["song_count"]:
+                continue
+            result = self.playlist_songs(pl["tid"])
+            for song in result["songs"]:
+                for singer in song.get("singers") or []:
+                    mid = singer.get("mid")
+                    if not mid:
+                        continue
+                    saved.setdefault(mid, set()).add((song["id"], song["type"]))
+                    if pl["liked"]:
+                        liked[mid] = liked.get(mid, 0) + 1
+        for person in people:
+            mid = person.get("mid")
+            person["liked_songs"] = liked.get(mid, 0) if mid else None
+            person["saved_songs"] = len(saved.get(mid, ())) if mid else None
+        return people
+
     # -- songs ------------------------------------------------------------------------------
 
     def tracks(self, refs: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:

@@ -190,6 +190,8 @@ jq '[.playlists[] | select(.dir_id == 201) | .songs[] | ((.release_date // "")[:
 jq '[.playlists[] | select(.dir_id == 201) | .songs[].singers[].name]
     | group_by(.) | map({artist: .[0], n: length}) | sort_by(-.n) | .[:10]' "$F"
 
+# 更省事的做法：qqmusic following --saved 直接给出每位关注歌手的 liked_songs / saved_songs
+
 # 关注了，但所有歌单里一首都没收藏（按 mid 匹配）
 jq '([.playlists[].songs[].singers[].mid] | unique) as $have
     | [.following_singers[] | select(.mid as $m | $have | index($m) | not) | .name]' "$F"

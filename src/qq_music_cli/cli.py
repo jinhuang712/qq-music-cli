@@ -252,12 +252,16 @@ def faved(kind: str = typer.Argument("playlists", help="`playlists` or `albums`.
 @app.command()
 def following(
     kind: str = typer.Argument("singers", help="`singers` or `users`."),
+    saved: bool = typer.Option(
+        False, "--saved", help="Add liked_songs / saved_songs: how many of your saved songs feature each singer."
+    ),
     fields: str | None = typer.Option(None, help="Comma-separated fields to keep, e.g. name,fans."),
 ) -> None:
     """List the singers (or users) you follow (关注)."""
     lib = _library()
     key = "singers" if kind.startswith("singer") else "users" if kind.startswith("user") else kind
-    emit([project(x, _fields(fields)) for x in lib.following(key)])
+    people = lib.following_with_saved(key) if saved else lib.following(key)
+    emit([project(x, _fields(fields)) for x in people])
 
 
 @app.command()
