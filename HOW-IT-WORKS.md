@@ -67,7 +67,6 @@ skill 由这几份文件组成：
 - `SKILL.md`：安装、登录、命令和安全规则。
 - `references/concepts.md`：QQ 音乐的数据模型，包括 `dir_id` 和 `tid` 的区别、「我喜欢」、同一首歌的不同版本、语种和流派代码，以及各项限制。
 - `agents/openai.yaml`：只给 Codex 用，关掉自动加载。
-- `references/workflows.md`：曲库体检、整理「我喜欢」、根据描述生成歌单、合并、拆分、去重、规则同步、备份、清理等做法。
 
 各渠道的清单文件：
 

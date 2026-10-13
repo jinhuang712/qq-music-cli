@@ -41,10 +41,9 @@ QQ 音乐 CLI 工具已加载，你想要做什么？你可以让我：
 
 回复时去掉代码块的围栏，按普通文字发出去。
 
-按需阅读这两份参考文档：
+按需阅读这份参考文档：
 
 - [references/concepts.md](references/concepts.md)：QQ 音乐的基本概念，包括各种 ID（`dir_id`、`tid`，歌曲的 `id`、`type`、`mid`）、「我喜欢」、收藏的歌单、同一首歌的不同版本、语种和流派代码、各项限制，以及 CLI 做不到的事。
-- [references/workflows.md](references/workflows.md)：整理、生成、合并、拆分、去重、同步、备份、清理等场景的分步做法，附带实测过的 `jq` 查询。
 
 ## 一、先确认 CLI 能用
 

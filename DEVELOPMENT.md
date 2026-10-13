@@ -63,6 +63,7 @@ codex plugin add qq-music@qq-music
 ### 文档和 skill
 
 - 面向人的内容只用中文：README、Pages、仓库描述、各清单里的描述。skill 也用中文。中文要写成母语的样子，不能有翻译腔。
+- 插件只提供能力，不写工作流程和回复格式。skill 讲清楚命令能做什么、数据是什么意思、有哪些限制，怎么帮用户整理由 agent 自己判断，不要写成分步流程，也不要规定怎么排版回复。唯一的例外是「用中文回复」。
 - skill 只在用户手动加载时使用，不能让模型自己触发。四个渠道的设置不同，见 HOW-IT-WORKS.md 的「插件结构」。改了这部分，要在四个 agent 里各验证一次：不加载时模型看不到它，只加载不带要求时会回引导。
 - skill 只有一份源头，就是 `skills/cli/`。Pi 和 OpenCode 用的副本由 `scripts/sync_flat_skill.py` 生成。各渠道显示 skill 名字的规则不同，打包要按渠道分别处理，见 HOW-IT-WORKS.md 的「插件结构」。
 - 插件的 `displayName` 设为 `QQ Music`，`.claude-plugin/plugin.json` 和 `.claude-plugin/marketplace.json` 各一处。不设的话，界面会把 `qq-music` 显示成「Qq Music」。
@@ -81,7 +82,7 @@ codex plugin add qq-music@qq-music
    版本号的格式是 `X.Y.Z`，按改动大小决定改哪一位：
 
    - 小的迭代改 Z，比如修正、改文案、小调整：0.5.0 → 0.5.1。
-   - 大的迭代改 Y，Z 归零，比如新命令、新功能：0.5.1 → 0.6.0。
+   - 大的迭代改 Y，Z 归零，比如整体换了做法、改了大块结构：0.5.1 → 0.6.0。新增一个命令或字段，仍算小的迭代，改 Z。
    - X 保持 0，不改。
 
 2. **检查**：运行测试和 `claude plugin validate . --strict`。
