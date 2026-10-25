@@ -1,4 +1,4 @@
-<!-- what-we-build: drafted 2026-10-26 -->
+<!-- what-we-build: approved 2026-10-26 -->
 
 # 功能
 
