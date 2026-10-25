@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400" viewBox="0 0 1200 400" role="img" aria-labelledby="t d">
+  <title id="t">qq-music-cli</title>
+  <desc id="d">让 AI 帮你打理 QQ 音乐歌单，支持 Claude Code、Codex、Pi、OpenCode。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1540"/>
+      <stop offset="0.55" stop-color="#4b3bd6"/>
+      <stop offset="1" stop-color="#8b7dff"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffd166"/>
+      <stop offset="1" stop-color="#ff6fb5"/>
+    </linearGradient>
+    <clipPath id="round"><rect width="1200" height="400" rx="24"/></clipPath>
+  </defs>
+  <g clip-path="url(#round)" font-family="-apple-system, 'SF Pro Display', 'PingFang SC', 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif">
+    <rect width="1200" height="400" fill="url(#bg)"/>
+    <circle cx="1090" cy="40" r="190" fill="#ffffff" fill-opacity="0.07"/>
+    <circle cx="1010" cy="380" r="130" fill="#ff6fb5" fill-opacity="0.16"/>
+    <circle cx="90" cy="400" r="150" fill="#ffd166" fill-opacity="0.10"/>
+
+    <text x="72" y="96" font-size="64" font-weight="800" fill="#ffffff" letter-spacing="-1">qq-music-cli</text>
+    <rect x="76" y="116" width="120" height="6" rx="3" fill="url(#glow)"/>
+    <text x="72" y="184" font-size="38" font-weight="700" fill="#ffffff">让 AI 帮你打理 QQ 音乐歌单</text>
+    <text x="72" y="232" font-size="22" fill="#ffffff" fill-opacity="0.82">分类 · 去重 · 建单 · 合并 · 改名 · 撤销，说句话就行</text>
+
+    <g font-size="18" font-weight="600">
+      <rect x="72" y="282" width="150" height="38" rx="19" fill="#ffffff" fill-opacity="0.16"/>
+      <text x="147" y="307" text-anchor="middle" fill="#ffffff">Claude Code</text>
+      <rect x="234" y="282" width="100" height="38" rx="19" fill="#ffffff" fill-opacity="0.16"/>
+      <text x="284" y="307" text-anchor="middle" fill="#ffffff">Codex</text>
+      <rect x="346" y="282" width="72" height="38" rx="19" fill="#ffffff" fill-opacity="0.16"/>
+      <text x="382" y="307" text-anchor="middle" fill="#ffffff">Pi</text>
+      <rect x="430" y="282" width="120" height="38" rx="19" fill="#ffffff" fill-opacity="0.16"/>
+      <text x="490" y="307" text-anchor="middle" fill="#ffffff">OpenCode</text>
+    </g>
+
+    <g transform="translate(700 84)">
+      <rect width="440" height="232" rx="16" fill="#0f0d1c" fill-opacity="0.92"/>
+      <circle cx="26" cy="26" r="7" fill="#ff5f57"/>
+      <circle cx="48" cy="26" r="7" fill="#febc2e"/>
+      <circle cx="70" cy="26" r="7" fill="#28c840"/>
+      <g font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'PingFang SC', monospace" font-size="19">
+        <text x="28" y="84" fill="#8b7dff">$</text>
+        <text x="52" y="84" fill="#ecebf3">qqmusic add "通勤" 97773 \</text>
+        <text x="52" y="112" fill="#ffd166">  --dry-run</text>
+        <text x="28" y="160" fill="#8b7dff">$</text>
+        <text x="52" y="160" fill="#ecebf3">qqmusic add "通勤" 97773</text>
+        <text x="28" y="204" fill="#8b7dff">$</text>
+        <text x="52" y="204" fill="#ecebf3" xml:space="preserve">qqmusic undo <tspan fill="#ff6fb5">&lt;run_id&gt;</tspan></text>
+      </g>
+    </g>
+  </g>
+</svg>
